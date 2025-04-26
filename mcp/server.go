@@ -1,0 +1,91 @@
+package mcp
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+
+	"github.com/tjhop/prometheus-mcp-server/internal/version"
+)
+
+var (
+	// Tools
+	queryTool = mcp.NewTool("execute_query",
+		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description("Query to be executed"),
+		),
+		// mcp.WithNumber("timestamp",
+		// mcp.Description("Timestamp for the query to be executed at"),
+		// ),
+	)
+)
+
+// Handler functions
+func queryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	arguments := request.Params.Arguments
+	query, ok := arguments["query"].(string)
+	if !ok {
+		return nil, errors.New("query must be a string")
+	}
+	if query == "" {
+		return nil, errors.New("query cannot be empty")
+	}
+
+	// TODO: can client be stored in ctx or passed somehow so it doesn't have to be created every time?
+	client, err := api.NewClient(api.Config{
+		Address: "http://127.0.0.1:9090",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	v1api := v1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute) // TODO: make timeout configurable via flag/tool arg?
+	defer cancel()
+
+	// TODO: make query timestamp configurable/settable
+	result, warnings, err := v1api.Query(ctx, query, time.Now(), v1.WithTimeout(30*time.Second))
+	if err != nil {
+		return nil, fmt.Errorf("error querying Prometheus: %w", err)
+	}
+
+	if len(warnings) > 0 {
+		// TODO: how do I access the logger? can I?
+		fmt.Printf("Warnings: %v\n", warnings)
+	}
+
+	toolResult := ""
+	if result != nil {
+		toolResult = result.String()
+	}
+
+	return mcp.NewToolResultText(toolResult), nil
+}
+
+func NewServer(logger *slog.Logger) *server.MCPServer {
+	hooks := &server.Hooks{}
+
+	hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
+		logger.Debug("Before Call Tool", "id", id, "tool_request", message)
+	})
+
+	mcpServer := server.NewMCPServer(
+		"prometheus-mcp-server",
+		version.Info(),
+		server.WithLogging(),
+		server.WithHooks(hooks),
+	)
+
+	mcpServer.AddTool(queryTool, queryHandler)
+
+	return mcpServer
+}
