@@ -1,0 +1,7 @@
+.envrc
+*.log
+*.vim
+*.swp
+.vagrant/
+
+dist/
