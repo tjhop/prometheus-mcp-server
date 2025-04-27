@@ -1,0 +1,69 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    ldflags:
+      - -X github.com/tjhop/prometheus-mcp-server/internal/version.BuildDate={{ .CommitDate }}
+      - -X github.com/tjhop/prometheus-mcp-server/internal/version.Version={{ .Version }}
+      - -X github.com/tjhop/prometheus-mcp-server/internal/version.Commit={{ .Commit }}
+    binary: prometheus-mcp-server
+    main: './cmd/prometheus-mcp-server'
+gomod:
+  proxy: true
+  mod: mod
+dockers:
+  # build latest and specific tag version images
+  - image_templates:
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}"
+      - "ghcr.io/tjhop/{{.ProjectName}}:latest"
+    goos: linux
+    goarch: amd64
+    use: docker
+    build_flag_templates:
+    - "--pull"
+    - "--label=org.opencontainers.image.created={{.Date}}"
+    - "--label=org.opencontainers.image.title={{.ProjectName}}"
+    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.source=https://github.com/tjhop/prometheus-mcp-server"
+    - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
+    - "--label=org.opencontainers.image.licenses=Apache-2.0"
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+nfpms:
+  - package_name: 'prometheus-mcp-server'
+    homepage: 'https://github.com/tjhop/prometheus-mcp-server'
+    maintainer: 'TJ Hoplock <t.hoplock@gmail.com>'
+    description: 'Prometheus MCP Server'
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux
+    bindir: /usr/bin
+    contents:
+      - src: ./README.md
+        dst: /usr/share/doc/tjhop/prometheus-mcp-server/README.md
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^Merge pull request'
+      - '^ci(?:\(\w+\))?\!?:'
+      - '^docs(?:\(\w+\))?\!?:'
+      - '^test(?:\(\w+\))?\!?:'
+      - '^style(?:\(\w+\))?\!?:'
+  groups:
+    - title: "New Features And Changes"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Other Changes"
+      order: 999
