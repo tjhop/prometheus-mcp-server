@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/common/promslog/flag"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
-	"github.com/tjhop/prometheus-mcp-server/mcp"
+	"github.com/tjhop/prometheus-mcp-server/pkg/mcp"
 )
 
 const (
