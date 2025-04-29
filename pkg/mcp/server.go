@@ -17,7 +17,7 @@ import (
 
 var (
 	// Tools
-	queryTool = mcp.NewTool("execute_query",
+	execQueryTool = mcp.NewTool("execute_query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -30,7 +30,7 @@ var (
 )
 
 // Handler functions
-func queryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.Params.Arguments
 	query, ok := arguments["query"].(string)
 	if !ok {
@@ -85,7 +85,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 		server.WithHooks(hooks),
 	)
 
-	mcpServer.AddTool(queryTool, queryHandler)
+	mcpServer.AddTool(execQueryTool, execQueryHandler)
 
 	return mcpServer
 }
