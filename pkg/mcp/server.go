@@ -41,6 +41,10 @@ var (
 	listAlertsTool = mcp.NewTool("list_alerts",
 		mcp.WithDescription("List all active alerts"),
 	)
+
+	alertmanagersTool = mcp.NewTool("alertmanagers",
+		mcp.WithDescription("Get overview of Prometheus Alertmanager discovery"),
+	)
 )
 
 // setup pkg local APId
@@ -128,6 +132,23 @@ func listAlertsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	return mcp.NewToolResultText(string(jsonBytes)), nil
 }
 
+func alertmanagersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	ams, err := apiV1Client.AlertManagers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(ams)
+	if err != nil {
+		return nil, fmt.Errorf("error converting alertmanager status to JSON: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(jsonBytes)), nil
+}
+
 func NewServer(logger *slog.Logger) *server.MCPServer {
 	hooks := &server.Hooks{}
 
@@ -145,6 +166,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 	mcpServer.AddTool(execQueryTool, execQueryHandler)
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsHandler)
 	mcpServer.AddTool(listAlertsTool, listAlertsHandler)
+	mcpServer.AddTool(alertmanagersTool, alertmanagersHandler)
 
 	return mcpServer
 }
