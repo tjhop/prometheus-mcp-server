@@ -4,7 +4,7 @@ GOMOD := ${GOCMD} mod
 BINARY := "prometheus-mcp-server"
 RELEASE_CONTAINER_NAME := "${BINARY}"
 GOLANGCILINT_CACHE := ${CURDIR}/.golangci-lint/build/cache
-OLLAMA_MODEL := "ollama:qwen2.5-coder:3b"
+OLLAMA_MODEL ?= "ollama:qwen2.5-coder:3b"
 
 ## help:			print this help message
 .PHONY: help
