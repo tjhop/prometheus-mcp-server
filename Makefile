@@ -1,8 +1,10 @@
 GOCMD := go
 GOFMT := ${GOCMD} fmt
 GOMOD := ${GOCMD} mod
-RELEASE_CONTAINER_NAME := "prometheus-mcp-server"
+BINARY := "prometheus-mcp-server"
+RELEASE_CONTAINER_NAME := "${BINARY}"
 GOLANGCILINT_CACHE := ${CURDIR}/.golangci-lint/build/cache
+OLLAMA_MODEL := "ollama:qwen2.5-coder:3b"
 
 ## help:			print this help message
 .PHONY: help
@@ -46,3 +48,11 @@ podman: container
 
 ## docker:		alias for `container`
 docker: container
+
+## mcphost:		use mcphost to run the prometheus-mcp-server against a local ollama model
+mcphost:
+	mcphost --debug --config ./mcp.json --model "${OLLAMA_MODEL}"
+
+## inspector:		use inspector to run the prometheus-mcp-server
+inspector:
+	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
