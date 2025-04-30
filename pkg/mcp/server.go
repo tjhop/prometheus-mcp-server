@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -31,6 +32,10 @@ var (
 		// mcp.WithNumber("timestamp",
 		// mcp.Description("Timestamp for the query to be executed at"),
 		// ),
+	)
+
+	tsdbStatsTool = mcp.NewTool("tsdb_stats",
+		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
 	)
 )
 
@@ -85,6 +90,23 @@ func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(toolResult), nil
 }
 
+func tsdbStatsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	tsdbStats, err := apiV1Client.TSDB(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(tsdbStats)
+	if err != nil {
+		return nil, fmt.Errorf("error converting tsdb stats to JSON: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(jsonBytes)), nil
+}
+
 func NewServer(logger *slog.Logger) *server.MCPServer {
 	hooks := &server.Hooks{}
 
@@ -100,6 +122,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 	)
 
 	mcpServer.AddTool(execQueryTool, execQueryHandler)
+	mcpServer.AddTool(tsdbStatsTool, tsdbStatsHandler)
 
 	return mcpServer
 }
