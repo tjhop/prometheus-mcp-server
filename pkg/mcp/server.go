@@ -9,13 +9,18 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
+	"github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
+	// package local Prometheus API client for use with mcp tools/resources/etc
+	apiV1Client  v1.API
+	apiTimeout   = 1 * time.Minute
+	queryTimeout = 30 * time.Second
+
 	// Tools
 	execQueryTool = mcp.NewTool("execute_query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
@@ -28,6 +33,17 @@ var (
 		// ),
 	)
 )
+
+// setup pkg local APId
+func NewAPIClient() error {
+	client, err := prometheus.NewAPIClient()
+	if err != nil {
+		return fmt.Errorf("failed to create prometheus API client: %w", err)
+	}
+
+	apiV1Client = client
+	return nil
+}
 
 // Handler functions
 func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -48,12 +64,10 @@ func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		return nil, fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute) // TODO: make timeout configurable via flag/tool arg?
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout) // TODO: make timeout configurable via flag/tool arg?
 	defer cancel()
 
-	// TODO: make query timestamp configurable/settable
-	result, warnings, err := v1api.Query(ctx, query, time.Now(), v1.WithTimeout(30*time.Second))
+	result, warnings, err := apiV1Client.Query(ctx, query, time.Now(), v1.WithTimeout(queryTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %w", err)
 	}
