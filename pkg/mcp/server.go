@@ -37,6 +37,10 @@ var (
 	tsdbStatsTool = mcp.NewTool("tsdb_stats",
 		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
 	)
+
+	listAlertsTool = mcp.NewTool("list_alerts",
+		mcp.WithDescription("List all active alerts"),
+	)
 )
 
 // setup pkg local APId
@@ -107,6 +111,23 @@ func tsdbStatsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(string(jsonBytes)), nil
 }
 
+func listAlertsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	alerts, err := apiV1Client.Alerts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting alerts from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(alerts)
+	if err != nil {
+		return nil, fmt.Errorf("error converting alerts to JSON: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(jsonBytes)), nil
+}
+
 func NewServer(logger *slog.Logger) *server.MCPServer {
 	hooks := &server.Hooks{}
 
@@ -123,6 +144,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 
 	mcpServer.AddTool(execQueryTool, execQueryHandler)
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsHandler)
+	mcpServer.AddTool(listAlertsTool, listAlertsHandler)
 
 	return mcpServer
 }
