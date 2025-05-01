@@ -67,17 +67,6 @@ func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		return nil, errors.New("query cannot be empty")
 	}
 
-	// TODO: can client be stored in ctx or passed somehow so it doesn't have to be created every time?
-	client, err := api.NewClient(api.Config{
-		Address: "http://127.0.0.1:9090",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, apiTimeout) // TODO: make timeout configurable via flag/tool arg?
-	defer cancel()
-
 	result, warnings, err := apiV1Client.Query(ctx, query, time.Now(), v1.WithTimeout(queryTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %w", err)
