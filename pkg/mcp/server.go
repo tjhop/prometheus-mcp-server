@@ -3,23 +3,15 @@ package mcp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
-	"github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
-	// package local Prometheus API client for use with mcp tools/resources/etc
-	apiV1Client  v1.API
-	queryTimeout = 30 * time.Second
-
 	// Tools
 	execQueryTool = mcp.NewTool("execute_query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
@@ -45,44 +37,15 @@ var (
 	)
 )
 
-// setup pkg local APId
-func NewAPIClient() error {
-	client, err := prometheus.NewAPIClient()
-	if err != nil {
-		return fmt.Errorf("failed to create prometheus API client: %w", err)
-	}
-
-	apiV1Client = client
-	return nil
-}
-
-// Handler functions
 func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.Params.Arguments
 	query, ok := arguments["query"].(string)
 	if !ok {
 		return nil, errors.New("query must be a string")
 	}
-	if query == "" {
-		return nil, errors.New("query cannot be empty")
-	}
 
-	result, warnings, err := apiV1Client.Query(ctx, query, time.Now(), v1.WithTimeout(queryTimeout))
-	if err != nil {
-		return nil, fmt.Errorf("error querying Prometheus: %w", err)
-	}
-
-	if len(warnings) > 0 {
-		// TODO: how do I access the logger? can I?
-		fmt.Printf("Warnings: %v\n", warnings)
-	}
-
-	toolResult := ""
-	if result != nil {
-		toolResult = result.String()
-	}
-
-	return mcp.NewToolResultText(toolResult), nil
+	data, err := executeQueryApiCall(ctx, query)
+	return mcp.NewToolResultText(data), err
 }
 
 func listAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

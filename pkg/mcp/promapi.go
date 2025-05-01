@@ -5,11 +5,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+
+	"github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
-	apiTimeout = 1 * time.Minute
+	// package local Prometheus API client for use with mcp tools/resources/etc
+	apiV1Client  v1.API
+	apiTimeout   = 1 * time.Minute
+	queryTimeout = 30 * time.Second
 )
+
+// setup pkg local API client
+func NewAPIClient() error {
+	client, err := prometheus.NewAPIClient()
+	if err != nil {
+		return fmt.Errorf("failed to create prometheus API client: %w", err)
+	}
+
+	apiV1Client = client
+	return nil
+}
 
 func tsdbStatsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
@@ -57,6 +75,30 @@ func alertmanagersApiCall(ctx context.Context) (string, error) {
 	jsonBytes, err := json.Marshal(ams)
 	if err != nil {
 		return "", fmt.Errorf("error converting alertmanager status to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
+type queryApiResponse struct {
+	Result   string      `json:"result"`
+	Warnings v1.Warnings `json:"warnings"`
+}
+
+func executeQueryApiCall(ctx context.Context, query string) (string, error) {
+	result, warnings, err := apiV1Client.Query(ctx, query, time.Now(), v1.WithTimeout(queryTimeout))
+	if err != nil {
+		return "", fmt.Errorf("error querying Prometheus: %w", err)
+	}
+
+	res := queryApiResponse{
+		Result:   result.String(),
+		Warnings: warnings,
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting query response to JSON: %w", err)
 	}
 
 	return string(jsonBytes), nil
