@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,7 +18,6 @@ import (
 var (
 	// package local Prometheus API client for use with mcp tools/resources/etc
 	apiV1Client  v1.API
-	apiTimeout   = 1 * time.Minute
 	queryTimeout = 30 * time.Second
 
 	// Tools
@@ -98,55 +96,19 @@ func execQueryHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(toolResult), nil
 }
 
-func tsdbStatsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
-	defer cancel()
-
-	tsdbStats, err := apiV1Client.TSDB(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
-	}
-
-	jsonBytes, err := json.Marshal(tsdbStats)
-	if err != nil {
-		return nil, fmt.Errorf("error converting tsdb stats to JSON: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(jsonBytes)), nil
+func listAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := listAlertsApiCall(ctx)
+	return mcp.NewToolResultText(data), err
 }
 
-func listAlertsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
-	defer cancel()
-
-	alerts, err := apiV1Client.Alerts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error getting alerts from Prometheus: %w", err)
-	}
-
-	jsonBytes, err := json.Marshal(alerts)
-	if err != nil {
-		return nil, fmt.Errorf("error converting alerts to JSON: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(jsonBytes)), nil
+func alertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := alertmanagersApiCall(ctx)
+	return mcp.NewToolResultText(data), err
 }
 
-func alertmanagersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
-	defer cancel()
-
-	ams, err := apiV1Client.AlertManagers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
-	}
-
-	jsonBytes, err := json.Marshal(ams)
-	if err != nil {
-		return nil, fmt.Errorf("error converting alertmanager status to JSON: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(jsonBytes)), nil
+func tsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := tsdbStatsApiCall(ctx)
+	return mcp.NewToolResultText(data), err
 }
 
 func NewServer(logger *slog.Logger) *server.MCPServer {
@@ -163,10 +125,11 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 		server.WithHooks(hooks),
 	)
 
+	// add tools
 	mcpServer.AddTool(execQueryTool, execQueryHandler)
-	mcpServer.AddTool(tsdbStatsTool, tsdbStatsHandler)
-	mcpServer.AddTool(listAlertsTool, listAlertsHandler)
-	mcpServer.AddTool(alertmanagersTool, alertmanagersHandler)
+	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
+	mcpServer.AddTool(listAlertsTool, listAlertsToolHandler)
+	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
 
 	return mcpServer
 }
