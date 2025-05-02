@@ -171,3 +171,20 @@ func rulesApiCall(ctx context.Context) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+func targetsApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	targets, err := apiV1Client.Targets(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting targets from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(targets)
+	if err != nil {
+		return "", fmt.Errorf("error converting targets to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}

@@ -47,6 +47,10 @@ var (
 	rulesTool = mcp.NewTool("list_rules",
 		mcp.WithDescription("List all alerting and recording rules that are loaded"),
 	)
+
+	targetsTool = mcp.NewTool("list_targets",
+		mcp.WithDescription("Get overview of Prometheus target discovery"),
+	)
 )
 
 func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -92,5 +96,10 @@ func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 
 func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := rulesApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := targetsApiCall(ctx)
 	return mcp.NewToolResultText(data), err
 }
