@@ -154,3 +154,20 @@ func runtimeinfoApiCall(ctx context.Context) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+func rulesApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	rules, err := apiV1Client.Rules(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting rules from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(rules)
+	if err != nil {
+		return "", fmt.Errorf("error converting rules to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}

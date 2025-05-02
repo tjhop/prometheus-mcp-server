@@ -43,6 +43,10 @@ var (
 	runtimeinfoTool = mcp.NewTool("runtime_info",
 		mcp.WithDescription("Get Prometheus runtime information"),
 	)
+
+	rulesTool = mcp.NewTool("list_rules",
+		mcp.WithDescription("List all alerting and recording rules that are loaded"),
+	)
 )
 
 func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -83,5 +87,10 @@ func buildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := runtimeinfoApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := rulesApiCall(ctx)
 	return mcp.NewToolResultText(data), err
 }
