@@ -17,6 +17,13 @@ const (
 	programName = "prometheus-mcp-server"
 )
 
+var (
+	flagHttpConfig = kingpin.Flag(
+		"http.config",
+		"Path to config file to set Prometheus HTTP client options",
+	).String()
+)
+
 func main() {
 	promslogConfig := &promslog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promslogConfig)
@@ -28,7 +35,7 @@ func main() {
 
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
 
-	if err := mcp.NewAPIClient(); err != nil {
+	if err := mcp.NewAPIClient(*flagHttpConfig); err != nil {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 

@@ -19,8 +19,8 @@ var (
 )
 
 // NewAPIClient creates a new prometheus v1 API client for use by the MCP server
-func NewAPIClient() error {
-	client, err := prometheus.NewAPIClient()
+func NewAPIClient(httpConfig string) error {
+	client, err := prometheus.NewAPIClient(httpConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create prometheus API client: %w", err)
 	}

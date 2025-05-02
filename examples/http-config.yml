@@ -1,0 +1,6 @@
+# Prometheus HTTP config file
+# https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
+
+basic_auth:
+  username: foo
+  password: bar
