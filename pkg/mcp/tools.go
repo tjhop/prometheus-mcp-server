@@ -39,6 +39,10 @@ var (
 	buildinfoTool = mcp.NewTool("build_info",
 		mcp.WithDescription("Get Prometheus build information"),
 	)
+
+	runtimeinfoTool = mcp.NewTool("runtime_info",
+		mcp.WithDescription("Get Prometheus runtime information"),
+	)
 )
 
 func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -74,5 +78,10 @@ func flagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 
 func buildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := buildinfoApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := runtimeinfoApiCall(ctx)
 	return mcp.NewToolResultText(data), err
 }

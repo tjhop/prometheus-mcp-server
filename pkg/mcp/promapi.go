@@ -137,3 +137,20 @@ func buildinfoApiCall(ctx context.Context) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+func runtimeinfoApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	ri, err := apiV1Client.Runtimeinfo(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting runtime info from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(ri)
+	if err != nil {
+		return "", fmt.Errorf("error converting runtime info to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
