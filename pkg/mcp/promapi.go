@@ -120,3 +120,20 @@ func executeQueryApiCall(ctx context.Context, query string) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+func buildinfoApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	bi, err := apiV1Client.Buildinfo(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting build info from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(bi)
+	if err != nil {
+		return "", fmt.Errorf("error converting build info to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
