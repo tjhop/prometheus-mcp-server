@@ -18,7 +18,7 @@ var (
 	queryTimeout = 30 * time.Second
 )
 
-// setup pkg local API client
+// NewAPIClient creates a new prometheus v1 API client for use by the MCP server
 func NewAPIClient() error {
 	client, err := prometheus.NewAPIClient()
 	if err != nil {
@@ -29,18 +29,35 @@ func NewAPIClient() error {
 	return nil
 }
 
-func tsdbStatsApiCall(ctx context.Context) (string, error) {
+func alertmanagersApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
-	tsdbStats, err := apiV1Client.TSDB(ctx)
+	ams, err := apiV1Client.AlertManagers(ctx)
 	if err != nil {
-		return "", fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
+		return "", fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(tsdbStats)
+	jsonBytes, err := json.Marshal(ams)
 	if err != nil {
-		return "", fmt.Errorf("error converting tsdb stats to JSON: %w", err)
+		return "", fmt.Errorf("error converting alertmanager status to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
+func flagsApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	flags, err := apiV1Client.Flags(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting runtime flags from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(flags)
+	if err != nil {
+		return "", fmt.Errorf("error converting runtime flags to JSON: %w", err)
 	}
 
 	return string(jsonBytes), nil
@@ -63,18 +80,18 @@ func listAlertsApiCall(ctx context.Context) (string, error) {
 	return string(jsonBytes), nil
 }
 
-func alertmanagersApiCall(ctx context.Context) (string, error) {
+func tsdbStatsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
-	ams, err := apiV1Client.AlertManagers(ctx)
+	tsdbStats, err := apiV1Client.TSDB(ctx)
 	if err != nil {
-		return "", fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
+		return "", fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(ams)
+	jsonBytes, err := json.Marshal(tsdbStats)
 	if err != nil {
-		return "", fmt.Errorf("error converting alertmanager status to JSON: %w", err)
+		return "", fmt.Errorf("error converting tsdb stats to JSON: %w", err)
 	}
 
 	return string(jsonBytes), nil

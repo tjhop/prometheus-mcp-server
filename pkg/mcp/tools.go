@@ -31,6 +31,10 @@ var (
 	alertmanagersTool = mcp.NewTool("alertmanagers",
 		mcp.WithDescription("Get overview of Prometheus Alertmanager discovery"),
 	)
+
+	flagsTool = mcp.NewTool("flags",
+		mcp.WithDescription("Get runtime flags"),
+	)
 )
 
 func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -56,5 +60,10 @@ func alertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 func tsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := tsdbStatsApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func flagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := flagsApiCall(ctx)
 	return mcp.NewToolResultText(data), err
 }
