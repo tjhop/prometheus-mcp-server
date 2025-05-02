@@ -18,6 +18,11 @@ const (
 )
 
 var (
+	prometheusUrl = kingpin.Flag(
+		"prometheus.url",
+		"URL of the Prometheus instance to connect to",
+	).Default("http://127.0.0.1:9090").String()
+
 	flagHttpConfig = kingpin.Flag(
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
@@ -35,7 +40,7 @@ func main() {
 
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
 
-	if err := mcp.NewAPIClient(*flagHttpConfig); err != nil {
+	if err := mcp.NewAPIClient(*prometheusUrl, *flagHttpConfig); err != nil {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 

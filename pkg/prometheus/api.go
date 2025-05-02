@@ -9,7 +9,7 @@ import (
 	config_util "github.com/prometheus/common/config"
 )
 
-func NewAPIClient(httpConfig string) (v1.API, error) {
+func NewAPIClient(prometheusUrl, httpConfig string) (v1.API, error) {
 	httpClient := http.DefaultClient
 	if httpConfig != "" {
 		httpCfg, _, err := config_util.LoadHTTPConfigFile(httpConfig)
@@ -29,7 +29,7 @@ func NewAPIClient(httpConfig string) (v1.API, error) {
 
 	client, err := api.NewClient(api.Config{
 		Client:  httpClient,
-		Address: "http://127.0.0.1:9090",
+		Address: prometheusUrl,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API client: %w", err)
