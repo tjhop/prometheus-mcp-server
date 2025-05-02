@@ -51,6 +51,10 @@ var (
 	targetsTool = mcp.NewTool("list_targets",
 		mcp.WithDescription("Get overview of Prometheus target discovery"),
 	)
+
+	walReplayTool = mcp.NewTool("wal_replay_status",
+		mcp.WithDescription("Get current WAL replay status"),
+	)
 )
 
 func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -101,5 +105,10 @@ func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 
 func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := targetsApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func walReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := walReplayApiCall(ctx)
 	return mcp.NewToolResultText(data), err
 }
