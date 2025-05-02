@@ -52,18 +52,6 @@ make mcphost
 ```
 </details>
 
-## Features
-
-- [ ] Check Prometheus health
-- [ ] List metrics
-- [ ] List labels
-- [ ] Query support
-    - [X] Instant queries
-    - [ ] Range queries
-    - [ ] Query builder
-- [X] Get TSDB stats/info
-- [ ] Get scrape target health/info
-
 ## Development
 
 Required software:
