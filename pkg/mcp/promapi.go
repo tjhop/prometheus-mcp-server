@@ -193,7 +193,7 @@ func walReplayApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
-	wal, err := apiV1Client.Targets(ctx)
+	wal, err := apiV1Client.WalReplay(ctx)
 	if err != nil {
 		return "", fmt.Errorf("error getting WAL replay status from Prometheus: %w", err)
 	}
