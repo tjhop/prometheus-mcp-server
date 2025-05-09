@@ -102,8 +102,8 @@ type queryApiResponse struct {
 	Warnings v1.Warnings `json:"warnings"`
 }
 
-func executeQueryApiCall(ctx context.Context, query string) (string, error) {
-	result, warnings, err := apiV1Client.Query(ctx, query, time.Now(), v1.WithTimeout(queryTimeout))
+func executeQueryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
+	result, warnings, err := apiV1Client.Query(ctx, query, ts, v1.WithTimeout(queryTimeout))
 	if err != nil {
 		return "", fmt.Errorf("error querying Prometheus: %w", err)
 	}

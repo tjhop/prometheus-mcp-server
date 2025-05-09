@@ -3,8 +3,12 @@ package mcp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+
+	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
@@ -15,9 +19,9 @@ var (
 			mcp.Required(),
 			mcp.Description("Query to be executed"),
 		),
-		// mcp.WithNumber("timestamp",
-		// mcp.Description("Timestamp for the query to be executed at"),
-		// ),
+		mcp.WithString("timestamp",
+			mcp.Description("[Optional] Timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339."),
+		),
 	)
 
 	tsdbStatsTool = mcp.NewTool("tsdb_stats",
@@ -64,7 +68,17 @@ func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return nil, errors.New("query must be a string")
 	}
 
-	data, err := executeQueryApiCall(ctx, query)
+	ts := time.Now()
+	if argTs, ok := arguments["timestamp"]; ok {
+		parsedTs, err := mcpProm.ParseTimestamp(fmt.Sprintf("%v", argTs))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ts from args: %#v", argTs)
+		}
+
+		ts = parsedTs
+	}
+
+	data, err := executeQueryApiCall(ctx, query, ts)
 	return mcp.NewToolResultText(data), err
 }
 
