@@ -6,14 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
+	DefaultLookbackDelta = -5 * time.Minute
+
 	// package local Prometheus API client for use with mcp tools/resources/etc
-	apiV1Client  v1.API
+	apiV1Client  promv1.API
 	apiTimeout   = 1 * time.Minute
 	queryTimeout = 30 * time.Second
 )
@@ -98,14 +100,33 @@ func tsdbStatsApiCall(ctx context.Context) (string, error) {
 }
 
 type queryApiResponse struct {
-	Result   string      `json:"result"`
-	Warnings v1.Warnings `json:"warnings"`
+	Result   string          `json:"result"`
+	Warnings promv1.Warnings `json:"warnings"`
 }
 
 func executeQueryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
-	result, warnings, err := apiV1Client.Query(ctx, query, ts, v1.WithTimeout(queryTimeout))
+	result, warnings, err := apiV1Client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
 	if err != nil {
-		return "", fmt.Errorf("error querying Prometheus: %w", err)
+		return "", fmt.Errorf("error executing instant query: %w", err)
+	}
+
+	res := queryApiResponse{
+		Result:   result.String(),
+		Warnings: warnings,
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
+func executeQueryRangeApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
+	result, warnings, err := apiV1Client.QueryRange(ctx, query, promv1.Range{Start: start, End: end, Step: step})
+	if err != nil {
+		return "", fmt.Errorf("error executing range query: %w", err)
 	}
 
 	res := queryApiResponse{

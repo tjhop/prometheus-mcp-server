@@ -26,6 +26,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 
 	// add tools
 	mcpServer.AddTool(execQueryTool, execQueryToolHandler)
+	mcpServer.AddTool(execQueryRangeTool, execQueryRangeToolHandler)
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
 	mcpServer.AddTool(listAlertsTool, listAlertsToolHandler)
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
