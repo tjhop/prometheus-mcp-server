@@ -104,7 +104,7 @@ type queryApiResponse struct {
 	Warnings promv1.Warnings `json:"warnings"`
 }
 
-func executeQueryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
+func queryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
 	result, warnings, err := apiV1Client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
 	if err != nil {
 		return "", fmt.Errorf("error executing instant query: %w", err)
@@ -123,7 +123,7 @@ func executeQueryApiCall(ctx context.Context, query string, ts time.Time) (strin
 	return string(jsonBytes), nil
 }
 
-func executeQueryRangeApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
+func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
 	result, warnings, err := apiV1Client.QueryRange(ctx, query, promv1.Range{Start: start, End: end, Step: step})
 	if err != nil {
 		return "", fmt.Errorf("error executing range query: %w", err)

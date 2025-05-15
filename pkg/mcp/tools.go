@@ -14,7 +14,7 @@ import (
 
 var (
 	// Tools
-	execQueryTool = mcp.NewTool("execute_query",
+	queryTool = mcp.NewTool("query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -25,7 +25,7 @@ var (
 		),
 	)
 
-	execQueryRangeTool = mcp.NewTool("execute_range_query",
+	rangeQueryTool = mcp.NewTool("range_query",
 		mcp.WithDescription("Execute a range query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -84,7 +84,7 @@ var (
 	)
 )
 
-func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.Params.Arguments
 	query, ok := arguments["query"].(string)
 	if !ok {
@@ -101,11 +101,11 @@ func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		ts = parsedTs
 	}
 
-	data, err := executeQueryApiCall(ctx, query, ts)
+	data, err := queryApiCall(ctx, query, ts)
 	return mcp.NewToolResultText(data), err
 }
 
-func execQueryRangeToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.Params.Arguments
 	query, ok := arguments["query"].(string)
 	if !ok {
@@ -146,7 +146,7 @@ func execQueryRangeToolHandler(ctx context.Context, request mcp.CallToolRequest)
 		step = parsedStep
 	}
 
-	data, err := executeQueryRangeApiCall(ctx, query, startTs, endTs, step)
+	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
 	return mcp.NewToolResultText(data), err
 }
 
