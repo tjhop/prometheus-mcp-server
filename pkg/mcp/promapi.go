@@ -159,6 +159,23 @@ func buildinfoApiCall(ctx context.Context) (string, error) {
 	return string(jsonBytes), nil
 }
 
+func configApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	cfg, err := apiV1Client.Config(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting configuration from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("error converting configuration to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func runtimeinfoApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
