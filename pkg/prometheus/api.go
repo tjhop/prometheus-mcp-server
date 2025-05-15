@@ -5,11 +5,11 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
 )
 
-func NewAPIClient(prometheusUrl, httpConfig string) (v1.API, error) {
+func NewAPIClient(prometheusUrl, httpConfig string) (promv1.API, error) {
 	httpClient := http.DefaultClient
 	if httpConfig != "" {
 		httpCfg, _, err := config_util.LoadHTTPConfigFile(httpConfig)
@@ -35,5 +35,5 @@ func NewAPIClient(prometheusUrl, httpConfig string) (v1.API, error) {
 		return nil, fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	return v1.NewAPI(client), nil
+	return promv1.NewAPI(client), nil
 }
