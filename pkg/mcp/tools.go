@@ -88,8 +88,8 @@ func execQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	}
 
 	ts := time.Now()
-	if argTs, ok := arguments["timestamp"]; ok {
-		parsedTs, err := mcpProm.ParseTimestamp(fmt.Sprintf("%v", argTs))
+	if argTs, ok := arguments["timestamp"].(string); ok {
+		parsedTs, err := mcpProm.ParseTimestamp(argTs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ts from args: %#v", argTs)
 		}
@@ -125,8 +125,8 @@ func execQueryRangeToolHandler(ctx context.Context, request mcp.CallToolRequest)
 		endTs = parsedEndTime
 	}
 
-	if argStartTime, ok := arguments["start_time"]; ok {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime.(string))
+	if argStartTime, ok := arguments["start_time"].(string); ok {
+		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
 		}
