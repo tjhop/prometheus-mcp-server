@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -137,6 +138,31 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
 		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
+func seriesApiCall(ctx context.Context, matchers []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.Series(ctx, matchers, start, end)
+	if err != nil {
+		return "", fmt.Errorf("error getting series: %w", err)
+	}
+
+	// convert labelsets to their stringified form
+	lsets := make([]string, len(result))
+	for i, lset := range result {
+		lsets[i] = lset.String()
+	}
+
+	res := queryApiResponse{
+		Result:   strings.Join(lsets, "\n"),
+		Warnings: warnings,
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting series response to JSON: %w", err)
 	}
 
 	return string(jsonBytes), nil

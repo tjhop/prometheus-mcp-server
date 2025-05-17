@@ -43,6 +43,21 @@ var (
 		),
 	)
 
+	seriesTool = mcp.NewTool("series",
+		mcp.WithDescription("Finds series by label matchers"),
+		mcp.WithArray("matchers",
+			mcp.Required(),
+			mcp.Description("Series matchers"),
+		),
+		mcp.WithString("start_time",
+			mcp.Description("[Optional] Start timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
+		),
+		mcp.WithString("end_time",
+			mcp.Required(),
+			mcp.Description("[Optional] End timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+	)
+
 	tsdbStatsTool = mcp.NewTool("tsdb_stats",
 		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
 	)
@@ -147,6 +162,43 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 
 	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
+	return mcp.NewToolResultText(data), err
+}
+
+func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	arguments := request.Params.Arguments
+	argMatchers, ok := arguments["matchers"].([]any)
+	if !ok {
+		return nil, errors.New("matchers must be an array")
+	}
+
+	matchers := make([]string, len(argMatchers))
+	for i, m := range argMatchers {
+		matchers[i] = m.(string)
+	}
+
+	endTs := time.Now()
+	startTs := endTs.Add(DefaultLookbackDelta)
+
+	if argEndTime, ok := arguments["end_time"].(string); ok {
+		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+		}
+
+		endTs = parsedEndTime
+	}
+
+	if argStartTime, ok := arguments["start_time"].(string); ok {
+		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+		}
+
+		startTs = parsedStartTime
+	}
+
+	data, err := seriesApiCall(ctx, matchers, startTs, endTs)
 	return mcp.NewToolResultText(data), err
 }
 
