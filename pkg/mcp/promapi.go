@@ -168,6 +168,25 @@ func seriesApiCall(ctx context.Context, matchers []string, start, end time.Time)
 	return string(jsonBytes), nil
 }
 
+func labelNamesApiCall(ctx context.Context, matchers []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.LabelNames(ctx, matchers, start, end)
+	if err != nil {
+		return "", fmt.Errorf("error getting label names: %w", err)
+	}
+
+	res := queryApiResponse{
+		Result:   strings.Join(result, "\n"),
+		Warnings: warnings,
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting label names response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func buildinfoApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
