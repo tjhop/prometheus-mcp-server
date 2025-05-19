@@ -32,14 +32,17 @@ var (
 			mcp.Description("Query to be executed"),
 		),
 		mcp.WithString("start_time",
-			mcp.Description("[Optional] Start timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
+			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
 		),
 		mcp.WithString("end_time",
 			mcp.Required(),
-			mcp.Description("[Optional] End timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to current time."),
+			mcp.Description("[Optional] End timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
 		),
 		mcp.WithString("step",
-			mcp.Description("[Optional] Query resolution step width in duration format or float number of seconds. It will be set automatically if unset."),
+			mcp.Description("[Optional] Query resolution step width in duration format or float number of seconds."+
+				" It will be set automatically if unset."),
 		),
 	)
 
@@ -50,11 +53,14 @@ var (
 			mcp.Description("Series matchers"),
 		),
 		mcp.WithString("start_time",
-			mcp.Description("[Optional] Start timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
+			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
 		),
 		mcp.WithString("end_time",
 			mcp.Required(),
-			mcp.Description("[Optional] End timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339. Defaults to current time."),
+			mcp.Description("[Optional] End timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
 		),
 	)
 
