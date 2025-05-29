@@ -187,6 +187,30 @@ func labelNamesApiCall(ctx context.Context, matchers []string, start, end time.T
 	return string(jsonBytes), nil
 }
 
+func labelValuesApiCall(ctx context.Context, label string, matchers []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.LabelValues(ctx, label, matchers, start, end)
+	if err != nil {
+		return "", fmt.Errorf("error getting label values: %w", err)
+	}
+
+	lvals := make([]string, len(result))
+	for i, lval := range result {
+		lvals[i] = string(lval)
+	}
+
+	res := queryApiResponse{
+		Result:   strings.Join(lvals, "\n"),
+		Warnings: warnings,
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting label values response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func buildinfoApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
