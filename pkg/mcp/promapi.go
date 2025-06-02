@@ -143,6 +143,20 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 	return string(jsonBytes), nil
 }
 
+func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Time) (string, error) {
+	res, err := apiV1Client.QueryExemplars(ctx, query, start, end)
+	if err != nil {
+		return "", fmt.Errorf("error executing exemplar query: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func seriesApiCall(ctx context.Context, matchers []string, start, end time.Time) (string, error) {
 	result, warnings, err := apiV1Client.Series(ctx, matchers, start, end)
 	if err != nil {

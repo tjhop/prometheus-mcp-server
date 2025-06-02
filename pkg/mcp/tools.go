@@ -45,6 +45,22 @@ var (
 		),
 	)
 
+	exemplarQueryTool = mcp.NewTool("exemplar_query",
+		mcp.WithDescription("Execute a exemplar query against the Prometheus datasource"),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description("Query to be executed"),
+		),
+		mcp.WithString("start_time",
+			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
+		),
+		mcp.WithString("end_time",
+			mcp.Description("[Optional] End timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+	)
+
 	seriesTool = mcp.NewTool("series",
 		mcp.WithDescription("Finds series by label matchers"),
 		mcp.WithArray("matchers",
@@ -224,6 +240,38 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 
 	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
+	return mcp.NewToolResultText(data), err
+}
+
+func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.Params.Arguments
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, errors.New("query must be a string")
+	}
+
+	endTs := time.Now()
+	startTs := endTs.Add(DefaultLookbackDelta)
+
+	if argEndTime, ok := args["end_time"].(string); ok {
+		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+		}
+
+		endTs = parsedEndTime
+	}
+
+	if argStartTime, ok := args["start_time"].(string); ok {
+		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+		}
+
+		startTs = parsedStartTime
+	}
+
+	data, err := exemplarQueryApiCall(ctx, query, startTs, endTs)
 	return mcp.NewToolResultText(data), err
 }
 
