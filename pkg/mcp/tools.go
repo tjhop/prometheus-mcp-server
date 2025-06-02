@@ -133,6 +133,19 @@ var (
 		mcp.WithDescription("Get overview of Prometheus target discovery"),
 	)
 
+	targetsMetadataTool = mcp.NewTool("targets_metadata",
+		mcp.WithDescription("Returns metadata about metrics currently scraped by the target "),
+		mcp.WithString("match_target",
+			mcp.Description("[Optional] Label selectors that match targets by their label sets. All targets are selected if left empty."),
+		),
+		mcp.WithString("metric",
+			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
+		),
+		mcp.WithString("limit",
+			mcp.Description("[Optional] Maximum number of targets to match."),
+		),
+	)
+
 	walReplayTool = mcp.NewTool("wal_replay_status",
 		mcp.WithDescription("Get current WAL replay status"),
 	)
@@ -278,7 +291,6 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(data), err
 }
 
-// LabelValues performs a query for the values of the given label, time range and matchers.
 func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.Params.Arguments
 	label, ok := arguments["label"].(string)
@@ -363,6 +375,28 @@ func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 
 func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := targetsApiCall(ctx)
+	return mcp.NewToolResultText(data), err
+}
+
+func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	arguments := request.Params.Arguments
+
+	matchTarget := ""
+	if argMatchTarget, ok := arguments["match_target"].(string); ok {
+		matchTarget = argMatchTarget
+	}
+
+	metric := ""
+	if argMetric, ok := arguments["metric"].(string); ok {
+		metric = argMetric
+	}
+
+	limit := ""
+	if argLimit, ok := arguments["limit"].(string); ok {
+		limit = argLimit
+	}
+
+	data, err := targetsMetadataApiCall(ctx, matchTarget, metric, limit)
 	return mcp.NewToolResultText(data), err
 }
 

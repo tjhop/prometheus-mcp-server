@@ -296,6 +296,23 @@ func targetsApiCall(ctx context.Context) (string, error) {
 	return string(jsonBytes), nil
 }
 
+func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	tm, err := apiV1Client.TargetsMetadata(ctx, matchTarget, metric, limit)
+	if err != nil {
+		return "", fmt.Errorf("error getting target metadata from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(tm)
+	if err != nil {
+		return "", fmt.Errorf("error converting target metadata to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func walReplayApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
