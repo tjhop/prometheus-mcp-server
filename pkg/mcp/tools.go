@@ -146,6 +146,16 @@ var (
 		),
 	)
 
+	metricMetadataTool = mcp.NewTool("metric_metadata",
+		mcp.WithDescription("Returns metadata about metrics currently scraped by the metric name."),
+		mcp.WithString("metric",
+			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
+		),
+		mcp.WithString("limit",
+			mcp.Description("[Optional] Maximum number of metrics to return."),
+		),
+	)
+
 	walReplayTool = mcp.NewTool("wal_replay_status",
 		mcp.WithDescription("Get current WAL replay status"),
 	)
@@ -397,6 +407,25 @@ func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest
 	}
 
 	data, err := targetsMetadataApiCall(ctx, matchTarget, metric, limit)
+	return mcp.NewToolResultText(data), err
+}
+
+// // Metadata returns metadata about metrics currently scraped by the metric name.
+// Metadata(ctx context.Context, metric, limit string) (map[string][]Metadata, error)
+func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	arguments := request.Params.Arguments
+
+	metric := ""
+	if argMetric, ok := arguments["metric"].(string); ok {
+		metric = argMetric
+	}
+
+	limit := ""
+	if argLimit, ok := arguments["limit"].(string); ok {
+		limit = argLimit
+	}
+
+	data, err := metricMetadataApiCall(ctx, metric, limit)
 	return mcp.NewToolResultText(data), err
 }
 

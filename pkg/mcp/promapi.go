@@ -313,6 +313,23 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 	return string(jsonBytes), nil
 }
 
+func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	mm, err := apiV1Client.Metadata(ctx, metric, limit)
+	if err != nil {
+		return "", fmt.Errorf("error getting metric metadata from Prometheus: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(mm)
+	if err != nil {
+		return "", fmt.Errorf("error converting metric metadata to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 func walReplayApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()

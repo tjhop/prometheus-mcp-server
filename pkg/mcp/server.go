@@ -40,6 +40,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 	mcpServer.AddTool(rulesTool, rulesToolHandler)
 	mcpServer.AddTool(targetsTool, targetsToolHandler)
 	mcpServer.AddTool(targetsMetadataTool, targetsMetadataToolHandler)
+	mcpServer.AddTool(metricMetadataTool, metricMetadataToolHandler)
 	mcpServer.AddTool(walReplayTool, walReplayToolHandler)
 
 	return mcpServer
