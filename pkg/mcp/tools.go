@@ -162,14 +162,14 @@ var (
 )
 
 func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
-	query, ok := arguments["query"].(string)
+	args := request.Params.Arguments
+	query, ok := args["query"].(string)
 	if !ok {
 		return nil, errors.New("query must be a string")
 	}
 
 	ts := time.Now()
-	if argTs, ok := arguments["timestamp"].(string); ok {
+	if argTs, ok := args["timestamp"].(string); ok {
 		parsedTs, err := mcpProm.ParseTimestamp(argTs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ts from args: %#v", argTs)
@@ -183,8 +183,8 @@ func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 }
 
 func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
-	query, ok := arguments["query"].(string)
+	args := request.Params.Arguments
+	query, ok := args["query"].(string)
 	if !ok {
 		return nil, errors.New("query must be a string")
 	}
@@ -197,7 +197,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	// Convert seconds to nanoseconds such that time.Duration parses correctly.
 	step := time.Duration(resolution) * time.Second
 
-	if argEndTime, ok := arguments["end_time"].(string); ok {
+	if argEndTime, ok := args["end_time"].(string); ok {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
@@ -206,7 +206,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 		endTs = parsedEndTime
 	}
 
-	if argStartTime, ok := arguments["start_time"].(string); ok {
+	if argStartTime, ok := args["start_time"].(string); ok {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
@@ -215,7 +215,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 		startTs = parsedStartTime
 	}
 
-	if argStep, ok := arguments["step"].(string); ok {
+	if argStep, ok := args["step"].(string); ok {
 		parsedStep, err := time.ParseDuration(argStep)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse duration %s for step: %w", argStep, err)
@@ -228,8 +228,8 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 }
 
 func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
-	argMatchers, ok := arguments["matchers"].([]any)
+	args := request.Params.Arguments
+	argMatchers, ok := args["matchers"].([]any)
 	if !ok {
 		return nil, errors.New("matchers must be an array")
 	}
@@ -242,7 +242,7 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	endTs := time.Now()
 	startTs := endTs.Add(DefaultLookbackDelta)
 
-	if argEndTime, ok := arguments["end_time"].(string); ok {
+	if argEndTime, ok := args["end_time"].(string); ok {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
@@ -251,7 +251,7 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		endTs = parsedEndTime
 	}
 
-	if argStartTime, ok := arguments["start_time"].(string); ok {
+	if argStartTime, ok := args["start_time"].(string); ok {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
@@ -265,8 +265,8 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 }
 
 func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
-	argMatchers, ok := arguments["matchers"].([]any)
+	args := request.Params.Arguments
+	argMatchers, ok := args["matchers"].([]any)
 	if !ok {
 		return nil, errors.New("matchers must be an array")
 	}
@@ -279,7 +279,7 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	endTs := time.Now()
 	startTs := endTs.Add(DefaultLookbackDelta)
 
-	if argEndTime, ok := arguments["end_time"].(string); ok {
+	if argEndTime, ok := args["end_time"].(string); ok {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
@@ -288,7 +288,7 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 		endTs = parsedEndTime
 	}
 
-	if argStartTime, ok := arguments["start_time"].(string); ok {
+	if argStartTime, ok := args["start_time"].(string); ok {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
@@ -302,13 +302,13 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 }
 
 func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
-	label, ok := arguments["label"].(string)
+	args := request.Params.Arguments
+	label, ok := args["label"].(string)
 	if !ok {
 		return nil, errors.New("label must be a string")
 	}
 
-	argMatchers, ok := arguments["matchers"].([]any)
+	argMatchers, ok := args["matchers"].([]any)
 	if !ok {
 		return nil, errors.New("matchers must be an array")
 	}
@@ -321,7 +321,7 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	endTs := time.Now()
 	startTs := endTs.Add(DefaultLookbackDelta)
 
-	if argEndTime, ok := arguments["end_time"].(string); ok {
+	if argEndTime, ok := args["end_time"].(string); ok {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
@@ -330,7 +330,7 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 		endTs = parsedEndTime
 	}
 
-	if argStartTime, ok := arguments["start_time"].(string); ok {
+	if argStartTime, ok := args["start_time"].(string); ok {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
@@ -389,20 +389,20 @@ func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 }
 
 func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
+	args := request.Params.Arguments
 
 	matchTarget := ""
-	if argMatchTarget, ok := arguments["match_target"].(string); ok {
+	if argMatchTarget, ok := args["match_target"].(string); ok {
 		matchTarget = argMatchTarget
 	}
 
 	metric := ""
-	if argMetric, ok := arguments["metric"].(string); ok {
+	if argMetric, ok := args["metric"].(string); ok {
 		metric = argMetric
 	}
 
 	limit := ""
-	if argLimit, ok := arguments["limit"].(string); ok {
+	if argLimit, ok := args["limit"].(string); ok {
 		limit = argLimit
 	}
 
@@ -413,15 +413,15 @@ func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest
 // // Metadata returns metadata about metrics currently scraped by the metric name.
 // Metadata(ctx context.Context, metric, limit string) (map[string][]Metadata, error)
 func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.Params.Arguments
+	args := request.Params.Arguments
 
 	metric := ""
-	if argMetric, ok := arguments["metric"].(string); ok {
+	if argMetric, ok := args["metric"].(string); ok {
 		metric = argMetric
 	}
 
 	limit := ""
-	if argLimit, ok := arguments["limit"].(string); ok {
+	if argLimit, ok := args["limit"].(string); ok {
 		limit = argLimit
 	}
 
