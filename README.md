@@ -53,7 +53,12 @@ make mcphost
 </details>
 
 ## Development
+### Development Environment with Devbox + Direnv
+If you use [Devbox](https://www.jetify.com/devbox) and
+[Direnv](https://direnv.net/), then simply entering the directory for the repo
+should set up the needed software.
 
+### Manual Setup
 Required software:
 - Working Go environment
 - Podman for local tests/linting/etc
