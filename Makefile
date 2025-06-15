@@ -56,3 +56,8 @@ mcphost:
 ## inspector:		use inspector to run the prometheus-mcp-server
 inspector:
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
+
+## open-webui:		use open-webui to run the prometheus-mcp-server
+open-webui: build
+	podman run --rm -d -p 11119:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui ghcr.io/open-webui/open-webui:main
+	uvx mcpo --port 18000 -- "./${BINARY}" 
