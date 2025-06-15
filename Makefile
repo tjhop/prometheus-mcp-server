@@ -23,6 +23,7 @@ fmt:
 ## lint:			run linters
 lint:
 	mkdir -p ${GOLANGCILINT_CACHE} || true
+	# convert this to use golangic-lint from devbox, rather than podman
 	podman run --rm -v ${CURDIR}:/app -v ${GOLANGCILINT_CACHE}:/root/.cache -w /app docker.io/golangci/golangci-lint:latest golangci-lint run -v
 
 ## binary:		build a binary
@@ -50,11 +51,11 @@ podman: container
 docker: container
 
 ## mcphost:		use mcphost to run the prometheus-mcp-server against a local ollama model
-mcphost:
+mcphost: build
 	mcphost --debug --config ./mcp.json --model "${OLLAMA_MODEL}"
 
 ## inspector:		use inspector to run the prometheus-mcp-server
-inspector:
+inspector: build
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
 
 ## open-webui:		use open-webui to run the prometheus-mcp-server
