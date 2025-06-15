@@ -1,10 +1,8 @@
 package mcp
 
 import (
-	"context"
 	"log/slog"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
@@ -13,9 +11,10 @@ import (
 func NewServer(logger *slog.Logger) *server.MCPServer {
 	hooks := &server.Hooks{}
 
-	hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
-		logger.Debug("Before Call Tool", "id", id, "tool_request", message)
-	})
+	// TODO: remove/improve this hook?
+	// hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
+		// logger.Debug("Before Call Tool", "id", id, "tool_request", message)
+	// })
 
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
