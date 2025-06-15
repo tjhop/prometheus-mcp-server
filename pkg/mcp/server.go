@@ -13,7 +13,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 
 	// TODO: remove/improve this hook?
 	// hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
-		// logger.Debug("Before Call Tool", "id", id, "tool_request", message)
+	// logger.Debug("Before Call Tool", "id", id, "tool_request", message)
 	// })
 
 	mcpServer := server.NewMCPServer(
@@ -21,7 +21,13 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 		version.Info(),
 		server.WithLogging(),
 		server.WithHooks(hooks),
+		server.WithResourceCapabilities(true, true),
 	)
+
+	// add resources
+	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
+	mcpServer.AddResource(targetsResource, targetsResourceHandler)
+	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
 
 	// add tools
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
