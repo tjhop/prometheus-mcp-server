@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -180,7 +179,7 @@ var (
 func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
-		return nil, errors.New("query must be a string")
+		return mcp.NewToolResultError("query must be a string"), nil
 	}
 
 	ts := time.Now()
@@ -188,20 +187,23 @@ func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	if argTs != "" {
 		parsedTs, err := mcpProm.ParseTimestamp(argTs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get ts from args: %#v", argTs)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get ts from args: %#v", argTs)), nil
 		}
 
 		ts = parsedTs
 	}
 
 	data, err := queryApiCall(ctx, query, ts)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
-		return nil, errors.New("query must be a string")
+		return mcp.NewToolResultError("query must be a string"), nil
 	}
 
 	endTs := time.Now()
@@ -216,7 +218,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	if argEndTime != "" {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
 
 		endTs = parsedEndTime
@@ -226,7 +228,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	if argStartTime != "" {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
 
 		startTs = parsedStartTime
@@ -236,19 +238,22 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	if argStep != "" {
 		parsedStep, err := time.ParseDuration(argStep)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse duration %s for step: %w", argStep, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse duration %s for step: %s", argStep, err.Error())), nil
 		}
 		step = parsedStep
 	}
 
 	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
-		return nil, errors.New("query must be a string")
+		return mcp.NewToolResultError("query must be a string"), nil
 	}
 
 	endTs := time.Now()
@@ -258,7 +263,7 @@ func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 	if argEndTime != "" {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
 
 		endTs = parsedEndTime
@@ -268,20 +273,23 @@ func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 	if argStartTime != "" {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
 
 		startTs = parsedStartTime
 	}
 
 	data, err := exemplarQueryApiCall(ctx, query, startTs, endTs)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matchers, err := request.RequireStringSlice("matchers")
 	if err != nil {
-		return nil, errors.New("matchers must be an array")
+		return mcp.NewToolResultError("matchers must be an array"), nil
 	}
 
 	endTs := time.Now()
@@ -291,7 +299,7 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	if argEndTime != "" {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
 
 		endTs = parsedEndTime
@@ -301,20 +309,23 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	if argStartTime != "" {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
 
 		startTs = parsedStartTime
 	}
 
 	data, err := seriesApiCall(ctx, matchers, startTs, endTs)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matchers, err := request.RequireStringSlice("matchers")
 	if err != nil {
-		return nil, errors.New("matchers must be an array")
+		return mcp.NewToolResultError("matchers must be an array"), nil
 	}
 
 	endTs := time.Now()
@@ -324,7 +335,7 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	if argEndTime != "" {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
 
 		endTs = parsedEndTime
@@ -334,25 +345,28 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	if argStartTime != "" {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
 
 		startTs = parsedStartTime
 	}
 
 	data, err := labelNamesApiCall(ctx, matchers, startTs, endTs)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	label, err := request.RequireString("label")
 	if err != nil {
-		return nil, errors.New("label must be a string")
+		return mcp.NewToolResultError("label must be a string"), nil
 	}
 
 	matchers, err := request.RequireStringSlice("matchers")
 	if err != nil {
-		return nil, errors.New("matchers must be an array")
+		return mcp.NewToolResultError("matchers must be an array"), nil
 	}
 
 	endTs := time.Now()
@@ -362,7 +376,7 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	if argEndTime != "" {
 		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse end_time %s from args: %w", argEndTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
 
 		endTs = parsedEndTime
@@ -372,59 +386,89 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	if argStartTime != "" {
 		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse start_time %s from args: %w", argStartTime, err)
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
 
 		startTs = parsedStartTime
 	}
 
 	data, err := labelValuesApiCall(ctx, label, matchers, startTs, endTs)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func listAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := listAlertsApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func alertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := alertmanagersApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func tsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := tsdbStatsApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func flagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := flagsApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func buildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := buildinfoApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func configToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := configApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := runtimeinfoApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := rulesApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := targetsApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -433,7 +477,10 @@ func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest
 	limit := request.GetString("limit", "")
 
 	data, err := targetsMetadataApiCall(ctx, matchTarget, metric, limit)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 // // Metadata returns metadata about metrics currently scraped by the metric name.
@@ -443,10 +490,16 @@ func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest)
 	limit := request.GetString("limit", "")
 
 	data, err := metricMetadataApiCall(ctx, metric, limit)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
 
 func walReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := walReplayApiCall(ctx)
-	return mcp.NewToolResultText(data), err
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
 }
