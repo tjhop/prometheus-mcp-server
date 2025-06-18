@@ -79,7 +79,6 @@ var (
 	labelNamesTool = mcp.NewTool("label_names",
 		mcp.WithDescription("Returns the unique label names present in the block in sorted order by given time range and matchers"),
 		mcp.WithArray("matchers",
-			mcp.Required(),
 			mcp.Description("Label matchers"),
 		),
 		mcp.WithString("start_time",
@@ -99,7 +98,6 @@ var (
 			mcp.Description("The label to query values for"),
 		),
 		mcp.WithArray("matchers",
-			mcp.Required(),
 			mcp.Description("Label matchers"),
 		),
 		mcp.WithString("start_time",
@@ -323,11 +321,7 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 }
 
 func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	matchers, err := request.RequireStringSlice("matchers")
-	if err != nil {
-		return mcp.NewToolResultError("matchers must be an array"), nil
-	}
-
+	matchers := request.GetStringSlice("matchers", []string{})
 	endTs := time.Now()
 	startTs := endTs.Add(DefaultLookbackDelta)
 
@@ -364,11 +358,7 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 		return mcp.NewToolResultError("label must be a string"), nil
 	}
 
-	matchers, err := request.RequireStringSlice("matchers")
-	if err != nil {
-		return mcp.NewToolResultError("matchers must be an array"), nil
-	}
-
+	matchers := request.GetStringSlice("matchers", []string{})
 	endTs := time.Now()
 	startTs := endTs.Add(DefaultLookbackDelta)
 
