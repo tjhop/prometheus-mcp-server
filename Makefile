@@ -5,6 +5,7 @@ BINARY := "prometheus-mcp-server"
 RELEASE_CONTAINER_NAME := "${BINARY}"
 GOLANGCILINT_CACHE := ${CURDIR}/.golangci-lint/build/cache
 OLLAMA_MODEL ?= "ollama:qwen2.5-coder:3b"
+OPENWEBUI_VERSION ?= "v0.6.15"
 
 ## help:			print this help message
 .PHONY: help
@@ -60,5 +61,5 @@ inspector: build
 
 ## open-webui:		use open-webui to run the prometheus-mcp-server
 open-webui: build
-	podman run --rm -d -p 11119:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui ghcr.io/open-webui/open-webui:main
+	podman run --rm -d -p 11119:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui "ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}"
 	uvx mcpo --port 18000 -- "./${BINARY}" 
