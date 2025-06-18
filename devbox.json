@@ -10,7 +10,8 @@
   ],
   "shell": {
     "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
+      "echo unsetting UV_PYTHON as workaround until devbox puthon plugin fix released https://github.com/jetify-com/devbox/pull/2608",
+      "unset UV_PYTHON"
     ],
     "scripts": {
       "test": [
