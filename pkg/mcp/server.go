@@ -20,6 +20,7 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 		"prometheus-mcp-server",
 		version.Info(),
 		server.WithLogging(),
+		server.WithRecovery(),
 		server.WithHooks(hooks),
 		server.WithResourceCapabilities(true, true),
 	)
