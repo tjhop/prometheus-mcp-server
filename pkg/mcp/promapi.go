@@ -157,8 +157,8 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 	return string(jsonBytes), nil
 }
 
-func seriesApiCall(ctx context.Context, matchers []string, start, end time.Time) (string, error) {
-	result, warnings, err := apiV1Client.Series(ctx, matchers, start, end)
+func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.Series(ctx, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting series: %w", err)
 	}
@@ -182,8 +182,8 @@ func seriesApiCall(ctx context.Context, matchers []string, start, end time.Time)
 	return string(jsonBytes), nil
 }
 
-func labelNamesApiCall(ctx context.Context, matchers []string, start, end time.Time) (string, error) {
-	result, warnings, err := apiV1Client.LabelNames(ctx, matchers, start, end)
+func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.LabelNames(ctx, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting label names: %w", err)
 	}
@@ -201,8 +201,8 @@ func labelNamesApiCall(ctx context.Context, matchers []string, start, end time.T
 	return string(jsonBytes), nil
 }
 
-func labelValuesApiCall(ctx context.Context, label string, matchers []string, start, end time.Time) (string, error) {
-	result, warnings, err := apiV1Client.LabelValues(ctx, label, matchers, start, end)
+func labelValuesApiCall(ctx context.Context, label string, matches []string, start, end time.Time) (string, error) {
+	result, warnings, err := apiV1Client.LabelValues(ctx, label, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting label values: %w", err)
 	}
