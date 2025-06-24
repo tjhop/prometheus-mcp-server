@@ -290,8 +290,8 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return mcp.NewToolResultError("matches must be an array"), nil
 	}
 
-	endTs := time.Now()
-	startTs := endTs.Add(DefaultLookbackDelta)
+	endTs := time.Time{}
+	startTs := time.Time{}
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
@@ -322,8 +322,8 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 
 func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matches := request.GetStringSlice("matches", []string{})
-	endTs := time.Now()
-	startTs := endTs.Add(DefaultLookbackDelta)
+	endTs := time.Time{}
+	startTs := time.Time{}
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
@@ -359,8 +359,8 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	matches := request.GetStringSlice("matches", []string{})
-	endTs := time.Now()
-	startTs := endTs.Add(DefaultLookbackDelta)
+	endTs := time.Time{}
+	startTs := time.Time{}
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
