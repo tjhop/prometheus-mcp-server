@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"runtime"
 
@@ -52,7 +53,7 @@ func main() {
 	}
 
 	mcpServer := mcp.NewServer(logger, *enableTsdbAdminTools)
-	if err := server.ServeStdio(mcpServer); err != nil {
+	if err := server.ServeStdio(mcpServer, server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))); err != nil {
 		logger.Error("Prometheus MCP server failed", "err", err)
 	}
 }
