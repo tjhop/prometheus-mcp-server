@@ -106,6 +106,9 @@ type queryApiResponse struct {
 }
 
 func queryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	result, warnings, err := apiV1Client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
 	if err != nil {
 		return "", fmt.Errorf("error executing instant query: %w", err)
@@ -125,6 +128,9 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 }
 
 func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	result, warnings, err := apiV1Client.QueryRange(ctx, query, promv1.Range{Start: start, End: end, Step: step})
 	if err != nil {
 		return "", fmt.Errorf("error executing range query: %w", err)
@@ -144,6 +150,9 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 }
 
 func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	res, err := apiV1Client.QueryExemplars(ctx, query, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error executing exemplar query: %w", err)
@@ -158,6 +167,9 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 }
 
 func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	result, warnings, err := apiV1Client.Series(ctx, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting series: %w", err)
@@ -183,6 +195,9 @@ func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) 
 }
 
 func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	result, warnings, err := apiV1Client.LabelNames(ctx, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting label names: %w", err)
@@ -202,6 +217,9 @@ func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Ti
 }
 
 func labelValuesApiCall(ctx context.Context, label string, matches []string, start, end time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
 	result, warnings, err := apiV1Client.LabelValues(ctx, label, matches, start, end)
 	if err != nil {
 		return "", fmt.Errorf("error getting label values: %w", err)
