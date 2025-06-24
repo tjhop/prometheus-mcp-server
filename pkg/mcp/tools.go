@@ -172,6 +172,35 @@ var (
 	walReplayTool = mcp.NewTool("wal_replay_status",
 		mcp.WithDescription("Get current WAL replay status"),
 	)
+
+	// Prometheus TSDB admin APIs
+	cleanTombstonesTool = mcp.NewTool("clean_tombstones",
+		mcp.WithDescription("Removes the deleted data from disk and cleans up the existing tombstones"),
+	)
+
+	deleteSeriesTool = mcp.NewTool("delete_series",
+		mcp.WithDescription("Deletes data for a selection of series in a time range"),
+		mcp.WithArray("matches",
+			mcp.Required(),
+			mcp.Description("Series matches"),
+		),
+		mcp.WithString("start_time",
+			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to 5m ago."),
+		),
+		mcp.WithString("end_time",
+			mcp.Description("[Optional] End timestamp for the query to be executed at."+
+				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+	)
+
+	snapshotTool = mcp.NewTool("snapshot",
+		mcp.WithDescription("creates a snapshot of all current data into snapshots/<datetime>-<rand>"+
+			" under the TSDB's data directory and returns the directory as response."),
+		mcp.WithBoolean("skip_head",
+			mcp.Description("[Optional] Skip data present in the head block."),
+		),
+	)
 )
 
 func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -488,6 +517,60 @@ func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest)
 
 func walReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := walReplayApiCall(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
+}
+
+func cleanTombstonesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := cleanTombstonesApiCall(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
+}
+
+func deleteSeriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	matches, err := request.RequireStringSlice("matches")
+	if err != nil {
+		return mcp.NewToolResultError("matches must be an array"), nil
+	}
+
+	endTs := time.Time{}
+	startTs := time.Time{}
+
+	argEndTime := request.GetString("end_time", "")
+	if argEndTime != "" {
+		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
+		}
+
+		endTs = parsedEndTime
+	}
+
+	argStartTime := request.GetString("start_time", "")
+	if argStartTime != "" {
+		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
+		}
+
+		startTs = parsedStartTime
+	}
+
+	data, err := deleteSeriesApiCall(ctx, matches, startTs, endTs)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
+}
+
+func snapshotToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	skipHead := request.GetBool("skip_head", false)
+
+	data, err := snapshotApiCall(ctx, skipHead)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

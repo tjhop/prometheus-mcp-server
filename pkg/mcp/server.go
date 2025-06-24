@@ -8,7 +8,7 @@ import (
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
 )
 
-func NewServer(logger *slog.Logger) *server.MCPServer {
+func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	// TODO: remove/improve this hook?
@@ -49,6 +49,19 @@ func NewServer(logger *slog.Logger) *server.MCPServer {
 	mcpServer.AddTool(targetsTool, targetsToolHandler)
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
 	mcpServer.AddTool(walReplayTool, walReplayToolHandler)
+
+	// if enabled at cli by flag, allow using the TSDB admin APIs
+	if enableTsdbAdminTools {
+		logger.Warn(
+			"TSDB Admin APIs have been enabled!" +
+				" This is dangerous, and allows for destructive operations like deleting data." +
+				" It is not the fault of this MCP server if the LLM you're connected to nukes all your data.",
+		)
+
+		mcpServer.AddTool(cleanTombstonesTool, cleanTombstonesToolHandler)
+		mcpServer.AddTool(deleteSeriesTool, deleteSeriesToolHandler)
+		mcpServer.AddTool(snapshotTool, snapshotToolHandler)
+	}
 
 	return mcpServer
 }

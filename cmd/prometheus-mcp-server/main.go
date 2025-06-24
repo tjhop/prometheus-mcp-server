@@ -27,6 +27,13 @@ var (
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
 	).String()
+
+	enableTsdbAdminTools = kingpin.Flag(
+		"dangerous.enable-tsdb-admin-tools",
+		"Enable and allow using tools that access Prometheus' TSDB Admin API endpoints"+
+			" (`snapshot`, `delete_series`, and `clean_tombstones` tools). "+
+			" Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis",
+	).Default("false").Bool()
 )
 
 func main() {
@@ -44,7 +51,7 @@ func main() {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 
-	mcpServer := mcp.NewServer(logger)
+	mcpServer := mcp.NewServer(logger, *enableTsdbAdminTools)
 	if err := server.ServeStdio(mcpServer); err != nil {
 		logger.Error("Prometheus MCP server failed", "err", err)
 	}

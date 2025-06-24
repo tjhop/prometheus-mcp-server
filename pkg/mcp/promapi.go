@@ -378,3 +378,42 @@ func walReplayApiCall(ctx context.Context) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+func cleanTombstonesApiCall(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	if err := apiV1Client.CleanTombstones(ctx); err != nil {
+		return "", fmt.Errorf("error cleaning tombstones from Prometheus: %w", err)
+	}
+
+	return "success", nil
+}
+
+func deleteSeriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	if err := apiV1Client.DeleteSeries(ctx, matches, start, end); err != nil {
+		return "", fmt.Errorf("error deleting series from Prometheus: %w", err)
+	}
+
+	return "success", nil
+}
+
+func snapshotApiCall(ctx context.Context, skipHead bool) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	ss, err := apiV1Client.Snapshot(ctx, skipHead)
+	if err != nil {
+		return "", fmt.Errorf("error creating Prometheus snapshot: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(ss)
+	if err != nil {
+		return "", fmt.Errorf("error converting snapshot response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
+}
