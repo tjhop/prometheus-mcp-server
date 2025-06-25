@@ -3,5 +3,8 @@
 *.vim
 *.swp
 .vagrant/
+.golangci-lint/
 
 dist/
+prometheus-mcp-server
+mcp.json
