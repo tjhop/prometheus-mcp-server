@@ -41,7 +41,6 @@ nfpms:
     maintainer: 'TJ Hoplock <t.hoplock@gmail.com>'
     description: 'Prometheus MCP Server'
     formats:
-      - apk
       - deb
       - rpm
       - archlinux
@@ -49,6 +48,21 @@ nfpms:
     contents:
       - src: ./README.md
         dst: /usr/share/doc/tjhop/prometheus-mcp-server/README.md
+      - src: ./packaging/systemd/prometheus-mcp-server.service
+        dst: /lib/systemd/system/prometheus-mcp-server.service
+        type: config
+        file_info:
+          mode: 0644
+          owner: root
+          group: root
+archives:
+  - files:
+    - LICENSE*
+    - README*
+    - docs/*
+    - documentation/*
+    - examples/*
+    - packaging/systemd/prometheus-mcp-server.service
 changelog:
   sort: asc
   filters:
