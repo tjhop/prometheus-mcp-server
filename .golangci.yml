@@ -1,0 +1,11 @@
+version: "2"
+linters:
+  enable:
+    - sloglint
+  settings:
+    errcheck:
+      exclude-functions:
+        - io.Copy
+  exclusions:
+    presets:
+      - std-error-handling
