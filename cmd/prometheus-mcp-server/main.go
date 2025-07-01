@@ -37,6 +37,11 @@ var (
 			" It is not the fault of this MCP server if the LLM you're connected to nukes all your data."+
 			" Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis",
 	).Default("false").Bool()
+
+	flagLogToFile = kingpin.Flag(
+		"log.file",
+		"The name of the file to log to (file rotation policies should be configured with external tools like logrotate)",
+	).String()
 )
 
 func main() {
@@ -46,6 +51,18 @@ func main() {
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
+
+	if *flagLogToFile != "" {
+		f, err := os.OpenFile(*flagLogToFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			slog.Error("Failed to open log file for writing", "file", *flagLogToFile, "err", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+
+		promslogConfig.Writer = f
+	}
+
 	logger := promslog.New(promslogConfig)
 
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
