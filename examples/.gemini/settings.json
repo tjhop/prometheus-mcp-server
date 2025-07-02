@@ -1,0 +1,21 @@
+{
+  "theme": "ANSI",
+  "selectedAuthType": "oauth-personal",
+  "preferredEditor": "vim",
+  // "toolDiscoveryCommand": "bin/get_tools",
+  // "toolCallCommand": "bin/call_tool",
+  "mcpServers": {
+    "prometheus-mcp-server": {
+      "command": "./prometheus-mcp-server",
+      "args": [
+          "--log.level",
+          "debug"
+      ]
+    }
+  },
+  "telemetry": {
+    "enabled": false,
+    "logPrompts": true
+  },
+  "usageStatisticsEnabled": true
+}
