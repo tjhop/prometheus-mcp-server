@@ -211,6 +211,7 @@ Flags:
                                  This is dangerous, and allows for destructive operations like deleting data. It is not the fault of this MCP server if the LLM you're
                                  connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
       --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate)
+      --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`].
       --log.level=info           Only log messages with the given severity or above. One of: [debug, info, warn, error]
       --log.format=logfmt        Output format of log messages. One of: [logfmt, json]
       --[no-]version             Show application version.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
@@ -42,6 +43,11 @@ var (
 		"log.file",
 		"The name of the file to log to (file rotation policies should be configured with external tools like logrotate)",
 	).String()
+
+	flagMcpTransport = kingpin.Flag(
+		"mcp.transport",
+		"The type of transport to use for the MCP server [`stdio`, `http`].",
+	).Default("stdio").String()
 )
 
 func main() {
@@ -72,7 +78,17 @@ func main() {
 	}
 
 	mcpServer := mcp.NewServer(logger, *flagEnableTsdbAdminTools)
-	if err := server.ServeStdio(mcpServer, server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))); err != nil {
-		logger.Error("Prometheus MCP server failed", "err", err)
+
+	switch *flagMcpTransport {
+	case "stdio":
+		if err := server.ServeStdio(mcpServer, server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))); err != nil {
+			logger.Error("Prometheus MCP server failed", "err", err, "transport", "stdio")
+		}
+	case "http":
+		if err := server.NewStreamableHTTPServer(mcpServer).Start(":8080"); err != nil {
+			logger.Error("Prometheus MCP server failed", "err", err, "transport", "http")
+		}
+	default:
+		logger.Error("Invalid transport type", "err", fmt.Errorf("unsupported transport type: %s", *flagMcpTransport), "transport", "unsupported")
 	}
 }
