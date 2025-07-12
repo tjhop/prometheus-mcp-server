@@ -151,6 +151,7 @@ Requires [gemini-cli](https://github.com/google-gemini/gemini-cli) to be install
 
 <details>
 <summary>Using `gemini-cli` and hosted models:</summary>
+
 ```bash
 make gemini
 ```
