@@ -52,13 +52,19 @@ func NewAPIClient(prometheusUrl, httpConfig string) (promv1.API, error) {
 		}
 	}
 
+	t := http.DefaultTransport
+	if httpClient.Transport != nil {
+		t = httpClient.Transport
+	}
+
+	uart := userAgentRoundTripper{
+		name: fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", version.Version),
+		rt:   t,
+	}
+
 	client, err := api.NewClient(api.Config{
-		Client:  httpClient,
-		Address: prometheusUrl,
-		RoundTripper: userAgentRoundTripper{
-			name: fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", version.Version),
-			rt:   api.DefaultRoundTripper,
-		},
+		Address:      prometheusUrl,
+		RoundTripper: uart,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API client: %w", err)
