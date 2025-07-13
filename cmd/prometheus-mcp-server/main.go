@@ -1,22 +1,35 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/oklog/run"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/promslog/flag"
+	"github.com/prometheus/exporter-toolkit/web"
+	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 
+	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
 	"github.com/tjhop/prometheus-mcp-server/pkg/mcp"
 )
 
 const (
 	programName = "prometheus-mcp-server"
+	defaultPort = 8080
 )
 
 var (
@@ -29,6 +42,16 @@ var (
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
 	).String()
+
+	flagWebTelemetryPath = kingpin.Flag(
+		"web.telemetry-path",
+		"Path under which to expose metrics.",
+	).Default("/metrics").String()
+
+	flagWebMaxRequests = kingpin.Flag(
+		"web.max-requests",
+		"Maximum number of parallel scrape requests. Use 0 to disable.",
+	).Default("40").Int()
 
 	flagEnableTsdbAdminTools = kingpin.Flag(
 		"dangerous.enable-tsdb-admin-tools",
@@ -48,6 +71,8 @@ var (
 		"mcp.transport",
 		"The type of transport to use for the MCP server [`stdio`, `http`].",
 	).Default("stdio").String()
+
+	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, fmt.Sprintf(":%d", defaultPort))
 )
 
 func main() {
@@ -70,25 +95,153 @@ func main() {
 	}
 
 	logger := promslog.New(promslogConfig)
-
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
 
 	if err := mcp.NewAPIClient(*flagPrometheusUrl, *flagHttpConfig); err != nil {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 
+	ctx := context.Background()
 	mcpServer := mcp.NewServer(logger, *flagEnableTsdbAdminTools)
+	srv := setupServer(logger)
 
-	switch *flagMcpTransport {
-	case "stdio":
-		if err := server.ServeStdio(mcpServer, server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))); err != nil {
-			logger.Error("Prometheus MCP server failed", "err", err, "transport", "stdio")
-		}
-	case "http":
-		if err := server.NewStreamableHTTPServer(mcpServer).Start(":8080"); err != nil {
-			logger.Error("Prometheus MCP server failed", "err", err, "transport", "http")
-		}
-	default:
-		logger.Error("Invalid transport type", "err", fmt.Errorf("unsupported transport type: %s", *flagMcpTransport), "transport", "unsupported")
+	var g run.Group
+	{
+		// termination and cleanup
+		term := make(chan os.Signal, 1)
+		signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+		cancel := make(chan struct{})
+		g.Add(
+			func() error {
+				select {
+				case sig := <-term:
+					logger.Warn("caught signal, exiting gracefully.", "signal", sig.String())
+				case <-cancel:
+				}
+
+				return nil
+			},
+			func(err error) {
+				close(cancel)
+			},
+		)
 	}
+	{
+		// web server for metrics, pprof, and HTTP if transport is configured
+		cancel := make(chan struct{})
+
+		g.Add(
+			func() error {
+				if err := web.ListenAndServe(srv, toolkitFlags, logger); err != http.ErrServerClosed {
+					logger.Error("webserver failed", "err", err)
+					return err
+				}
+
+				<-cancel
+
+				return nil
+			},
+			func(error) {
+				if err := srv.Shutdown(ctx); err != nil {
+					// Error from closing listeners, or context timeout:
+					logger.Error("failed to close listeners/context timeout", "err", err)
+				}
+				close(cancel)
+			},
+		)
+	}
+	{
+		// MCP transport setup and server
+		cancel := make(chan struct{})
+
+		g.Add(
+			func() error {
+				switch *flagMcpTransport {
+				case "stdio":
+					logger.Debug("starting MCP server", "transport", "stdio")
+
+					stdioMcpSrv := server.NewStdioServer(mcpServer)
+					server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))
+					if err := stdioMcpSrv.Listen(ctx, os.Stdin, os.Stdout); err != nil {
+						return fmt.Errorf("MCP server failed: %w", err)
+					}
+
+				case "http":
+					logger.Debug("starting MCP server", "transport", "http")
+
+					httpMcpServer := server.NewStreamableHTTPServer(mcpServer)
+					http.Handle("/mcp", httpMcpServer)
+					<-cancel
+				default:
+					return fmt.Errorf("unsupported transport type: %s", *flagMcpTransport)
+				}
+
+				return nil
+			},
+			func(err error) {
+				close(cancel)
+			},
+		)
+	}
+
+	if err := g.Run(); err != nil {
+		logger.Error("Failed to run daemon goroutines", "err", err)
+		os.Exit(1)
+	}
+	logger.Info("See you next time!")
+}
+
+func setupServer(logger *slog.Logger) *http.Server {
+	server := &http.Server{
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  30 * time.Second,
+	}
+
+	metricsHandler := promhttp.HandlerFor(
+		prometheus.Gatherers{metrics.Registry},
+		promhttp.HandlerOpts{
+			ErrorLog:            slog.NewLogLogger(logger.Handler(), slog.LevelError),
+			ErrorHandling:       promhttp.ContinueOnError,
+			MaxRequestsInFlight: *flagWebMaxRequests,
+			Registry:            metrics.Registry,
+		},
+	)
+	metricsHandler = promhttp.InstrumentMetricHandler(
+		metrics.Registry, metricsHandler,
+	)
+	http.Handle("/metrics", metricsHandler)
+
+	landingPageLinks := []web.LandingLinks{
+		{
+			Address: *flagWebTelemetryPath,
+			Text:    "Metrics",
+		},
+	}
+
+	if *flagMcpTransport == "http" {
+		landingPageLinks = append(landingPageLinks,
+			web.LandingLinks{
+				Address: "/mcp",
+				Text:    "Prometheus MCP Server",
+			},
+		)
+	}
+
+	if *flagWebTelemetryPath != "/" {
+		landingConfig := web.LandingConfig{
+			Name:        "Prometheus MCP Server",
+			Description: "MCP Server to interact with Prometheus",
+			Version:     version.Info(),
+			Links:       landingPageLinks,
+		}
+		landingPage, err := web.NewLandingPage(landingConfig)
+		if err != nil {
+			logger.Error("Failed to create landing page", "err", err)
+			os.Exit(1)
+		}
+		http.Handle("/", landingPage)
+	}
+
+	return server
 }
