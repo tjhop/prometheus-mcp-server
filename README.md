@@ -9,6 +9,10 @@
 ## About
 This is an [MCP](https://modelcontextprotocol.io/introduction) server to allow LLMs to interact with a running [Prometheus](https://prometheus.io/) instance via the API to do things like generate and execute promql queries, list and analyze metrics, etc.
 
+Here is a screen recording using Google Gemini models to research and analyze the `prom_mcp_tool_call_duration_seconds` metric, produced by the prometheus-mcp-server itself:
+
+[![asciicast](https://asciinema.org/a/728182.svg)](https://asciinema.org/a/728182)
+
 ### Tools
 
 | Tool Name | Description |
