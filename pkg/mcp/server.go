@@ -149,6 +149,16 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
 	mcpServer.AddTool(walReplayTool, walReplayToolHandler)
 
+	// add rule management tools
+	mcpServer.AddTool(createRecordingRuleTool, createRecordingRuleToolHandler)
+	mcpServer.AddTool(createAlertingRuleTool, createAlertingRuleToolHandler)
+	mcpServer.AddTool(updateRuleTool, updateRuleToolHandler)
+	mcpServer.AddTool(deleteRuleTool, deleteRuleToolHandler)
+	mcpServer.AddTool(validateRuleTool, validateRuleToolHandler)
+	mcpServer.AddTool(listRuleFilesTool, listRuleFilesToolHandler)
+	mcpServer.AddTool(getRuleFileContentTool, getRuleFileContentToolHandler)
+	mcpServer.AddTool(reloadConfigTool, reloadConfigToolHandler)
+
 	// if enabled at cli by flag, allow using the TSDB admin APIs
 	if enableTsdbAdminTools {
 		logger.Warn(
