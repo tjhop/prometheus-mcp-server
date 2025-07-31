@@ -79,7 +79,7 @@ var (
 	labelNamesTool = mcp.NewTool("label_names",
 		mcp.WithDescription("Returns the unique label names present in the block in sorted order by given time range and matches"),
 		mcp.WithArray("matches",
-			mcp.Description("Label matches"),
+			mcp.Description("[Optional] Label matches"),
 		),
 		mcp.WithString("start_time",
 			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
@@ -98,7 +98,7 @@ var (
 			mcp.Description("The label to query values for"),
 		),
 		mcp.WithArray("matches",
-			mcp.Description("Label matches"),
+			mcp.Description("[Optional] Label matches"),
 		),
 		mcp.WithString("start_time",
 			mcp.Description("[Optional] Start timestamp for the query to be executed at."+
