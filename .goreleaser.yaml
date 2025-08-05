@@ -52,6 +52,16 @@ dockers:
     - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
     - "--label=org.opencontainers.image.licenses=Apache-2.0"
     - "--platform=linux/arm64"
+docker_manifests:
+  # manifest for multi-arch builds
+  - name_template: "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
+  - name_template: "ghcr.io/tjhop/{{.ProjectName}}:latest"
+    image_templates:
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
