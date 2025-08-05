@@ -5,6 +5,8 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
+      - darwin
+      - windows
     ldflags:
       - -X github.com/tjhop/prometheus-mcp-server/internal/version.BuildDate={{ .CommitDate }}
       - -X github.com/tjhop/prometheus-mcp-server/internal/version.Version={{ .Version }}
