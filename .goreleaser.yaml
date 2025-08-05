@@ -60,6 +60,8 @@ nfpms:
           mode: 0644
           owner: root
           group: root
+universal_binaries:
+  - replace: true
 archives:
   - files:
     - LICENSE*
