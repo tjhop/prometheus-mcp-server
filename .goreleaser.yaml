@@ -7,6 +7,9 @@ builds:
       - linux
       - darwin
       - windows
+    goarch:
+      - amd64
+      - arm64
     ldflags:
       - -X github.com/tjhop/prometheus-mcp-server/internal/version.BuildDate={{ .CommitDate }}
       - -X github.com/tjhop/prometheus-mcp-server/internal/version.Version={{ .Version }}
