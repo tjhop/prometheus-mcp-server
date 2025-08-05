@@ -20,13 +20,12 @@ gomod:
   proxy: true
   mod: mod
 dockers:
-  # build latest and specific tag version images
+  # build amd64 container image
   - image_templates:
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}"
-      - "ghcr.io/tjhop/{{.ProjectName}}:latest"
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
     goos: linux
     goarch: amd64
-    use: docker
+    use: buildx
     build_flag_templates:
     - "--pull"
     - "--label=org.opencontainers.image.created={{.Date}}"
@@ -36,6 +35,23 @@ dockers:
     - "--label=org.opencontainers.image.source=https://github.com/tjhop/prometheus-mcp-server"
     - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
     - "--label=org.opencontainers.image.licenses=Apache-2.0"
+    - "--platform=linux/amd64"
+  # build arm64 container image
+  - image_templates:
+      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
+    goos: linux
+    goarch: arm64
+    use: buildx
+    build_flag_templates:
+    - "--pull"
+    - "--label=org.opencontainers.image.created={{.Date}}"
+    - "--label=org.opencontainers.image.title={{.ProjectName}}"
+    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.source=https://github.com/tjhop/prometheus-mcp-server"
+    - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
+    - "--label=org.opencontainers.image.licenses=Apache-2.0"
+    - "--platform=linux/arm64"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
