@@ -103,6 +103,7 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 		if result.IsError {
 			// TODO: exemplars?
 			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
+			logger.Error("Tool call failed", "tool_name", name, "error", result)
 		}
 	})
 
