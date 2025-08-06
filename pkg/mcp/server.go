@@ -39,9 +39,9 @@ var (
 		[]string{"tool_name"},
 	)
 
-	metricToolCallFailures = prometheus.NewCounterVec(
+	metricToolCallsFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(metrics.MetricNamespace, "tool", "call_failures_total"),
+			Name: prometheus.BuildFQName(metrics.MetricNamespace, "tool", "calls_failed_total"),
 			Help: "Total number of failures per tool.",
 		},
 		[]string{"tool_name"},
@@ -57,7 +57,7 @@ func init() {
 	metrics.Registry.MustRegister(
 		metricServerReady,
 		metricToolCallDuration,
-		metricToolCallFailures,
+		metricToolCallsFailed,
 	)
 }
 
@@ -102,7 +102,7 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 
 		if result.IsError {
 			// TODO: exemplars?
-			metricToolCallFailures.With(prometheus.Labels{"tool_name": name}).Inc()
+			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
 		}
 	})
 
