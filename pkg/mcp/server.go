@@ -17,9 +17,9 @@ import (
 
 var (
 	//go:embed assets/*
-	assets           embed.FS
-	coreInstructions string
+	assets embed.FS
 
+	instrx    string
 	toolStats toolCallStats
 
 	metricServerReady = prometheus.NewGauge(
@@ -39,9 +39,9 @@ var (
 		[]string{"tool_name"},
 	)
 
-	metricToolCallFailures = prometheus.NewCounterVec(
+	metricToolCallsFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(metrics.MetricNamespace, "tool", "call_failures_total"),
+			Name: prometheus.BuildFQName(metrics.MetricNamespace, "tool", "calls_failed_total"),
 			Help: "Total number of failures per tool.",
 		},
 		[]string{"tool_name"},
@@ -57,7 +57,7 @@ func init() {
 	metrics.Registry.MustRegister(
 		metricServerReady,
 		metricToolCallDuration,
-		metricToolCallFailures,
+		metricToolCallsFailed,
 	)
 }
 
@@ -102,22 +102,23 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 
 		if result.IsError {
 			// TODO: exemplars?
-			metricToolCallFailures.With(prometheus.Labels{"tool_name": name}).Inc()
+			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
+			logger.Error("Tool call failed", "tool_name", name, "error", result)
 		}
 	})
 
-	instrx, err := assets.ReadFile("assets/instructions.md")
+	coreInstructions, err := assets.ReadFile("assets/instructions.md")
 	if err != nil {
 		logger.Error("Failed to read instructions from embedded assets", "err", err)
 	}
-	coreInstructions = string(instrx)
+	instrx = string(coreInstructions)
 
 	// TODO: allow users to specify additional instructions/context?
 
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
 		version.Info(),
-		server.WithInstructions(coreInstructions),
+		server.WithInstructions(instrx),
 		server.WithLogging(),
 		server.WithRecovery(),
 		server.WithHooks(hooks),

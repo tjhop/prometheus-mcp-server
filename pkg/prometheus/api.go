@@ -11,6 +11,10 @@ import (
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
 )
 
+var (
+	userAgent = fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", version.Version)
+)
+
 type userAgentRoundTripper struct {
 	name string
 	rt   http.RoundTripper
@@ -58,7 +62,7 @@ func NewAPIClient(prometheusUrl, httpConfig string) (promv1.API, error) {
 	}
 
 	uart := userAgentRoundTripper{
-		name: fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", version.Version),
+		name: userAgent,
 		rt:   t,
 	}
 
