@@ -1,11 +1,11 @@
 GOCMD := go
 GOFMT := ${GOCMD} fmt
 GOMOD := ${GOCMD} mod
-BINARY := "prometheus-mcp-server"
-RELEASE_CONTAINER_NAME := "${BINARY}"
+BINARY := prometheus-mcp-server
+RELEASE_CONTAINER_NAME := ${BINARY}
 GOLANGCILINT_CACHE := ${CURDIR}/.golangci-lint/build/cache
-OLLAMA_MODEL ?= "ollama:qwen2.5-coder:3b"
-OPENWEBUI_VERSION ?= "v0.6.15"
+OLLAMA_MODEL ?= ollama:gpt-oss:20b
+OPENWEBUI_VERSION ?= v0.6.15
 
 .PHONY: help
 help: ## print this help message
