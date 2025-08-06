@@ -17,9 +17,9 @@ import (
 
 var (
 	//go:embed assets/*
-	assets           embed.FS
-	coreInstructions string
+	assets embed.FS
 
+	instrx    string
 	toolStats toolCallStats
 
 	metricServerReady = prometheus.NewGauge(
@@ -106,18 +106,18 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 		}
 	})
 
-	instrx, err := assets.ReadFile("assets/instructions.md")
+	coreInstructions, err := assets.ReadFile("assets/instructions.md")
 	if err != nil {
 		logger.Error("Failed to read instructions from embedded assets", "err", err)
 	}
-	coreInstructions = string(instrx)
+	instrx = string(coreInstructions)
 
 	// TODO: allow users to specify additional instructions/context?
 
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
 		version.Info(),
-		server.WithInstructions(coreInstructions),
+		server.WithInstructions(instrx),
 		server.WithLogging(),
 		server.WithRecovery(),
 		server.WithHooks(hooks),
