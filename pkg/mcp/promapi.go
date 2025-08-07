@@ -8,8 +8,10 @@ import (
 	"time"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
+	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
+	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
@@ -19,11 +21,36 @@ var (
 	apiV1Client  promv1.API
 	apiTimeout   = 1 * time.Minute
 	queryTimeout = 30 * time.Second
+
+	metricApiCallsFailed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: prometheus.BuildFQName(metrics.MetricNamespace, "api", "calls_failed_total"),
+			Help: "Total number of Prometheus API failures, per endpoint.",
+		},
+		[]string{"target_path"},
+	)
+
+	metricApiCallDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:                        prometheus.BuildFQName(metrics.MetricNamespace, "api", "call_duration_seconds"),
+			Help:                        "Duration of Prometheus API calls, per endpoint, in seconds.",
+			Buckets:                     prometheus.ExponentialBuckets(0.25, 2, 10),
+			NativeHistogramBucketFactor: 1.1,
+		},
+		[]string{"target_path"},
+	)
 )
+
+func init() {
+	metrics.Registry.MustRegister(
+		metricApiCallsFailed,
+		metricApiCallDuration,
+	)
+}
 
 // NewAPIClient creates a new prometheus v1 API client for use by the MCP server
 func NewAPIClient(prometheusUrl, httpConfig string) error {
-	client, err := prometheus.NewAPIClient(prometheusUrl, httpConfig)
+	client, err := mcpProm.NewAPIClient(prometheusUrl, httpConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create prometheus API client: %w", err)
 	}
@@ -36,8 +63,12 @@ func alertmanagersApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/alertmanagers"
+	startTs := time.Now()
 	ams, err := apiV1Client.AlertManagers(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
 	}
 
@@ -53,8 +84,12 @@ func flagsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/flags"
+	startTs := time.Now()
 	flags, err := apiV1Client.Flags(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting runtime flags from Prometheus: %w", err)
 	}
 
@@ -70,8 +105,12 @@ func listAlertsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/alerts"
+	startTs := time.Now()
 	alerts, err := apiV1Client.Alerts(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting alerts from Prometheus: %w", err)
 	}
 
@@ -87,8 +126,12 @@ func tsdbStatsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/tsdb"
+	startTs := time.Now()
 	tsdbStats, err := apiV1Client.TSDB(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
 	}
 
@@ -109,8 +152,12 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/query"
+	startTs := time.Now()
 	result, warnings, err := apiV1Client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error executing instant query: %w", err)
 	}
 
@@ -131,8 +178,12 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/query_range"
+	startTs := time.Now()
 	result, warnings, err := apiV1Client.QueryRange(ctx, query, promv1.Range{Start: start, End: end, Step: step})
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error executing range query: %w", err)
 	}
 
@@ -153,8 +204,12 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/query_exemplars"
+	startTs := time.Now()
 	res, err := apiV1Client.QueryExemplars(ctx, query, start, end)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error executing exemplar query: %w", err)
 	}
 
@@ -170,8 +225,12 @@ func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) 
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/series"
+	startTs := time.Now()
 	result, warnings, err := apiV1Client.Series(ctx, matches, start, end)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting series: %w", err)
 	}
 
@@ -198,8 +257,12 @@ func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Ti
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/labels"
+	startTs := time.Now()
 	result, warnings, err := apiV1Client.LabelNames(ctx, matches, start, end)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting label names: %w", err)
 	}
 
@@ -220,8 +283,12 @@ func labelValuesApiCall(ctx context.Context, label string, matches []string, sta
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/label/:name/values"
+	startTs := time.Now()
 	result, warnings, err := apiV1Client.LabelValues(ctx, label, matches, start, end)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting label values: %w", err)
 	}
 
@@ -247,8 +314,12 @@ func buildinfoApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/buildinfo"
+	startTs := time.Now()
 	bi, err := apiV1Client.Buildinfo(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting build info from Prometheus: %w", err)
 	}
 
@@ -264,8 +335,12 @@ func configApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/config"
+	startTs := time.Now()
 	cfg, err := apiV1Client.Config(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting configuration from Prometheus: %w", err)
 	}
 
@@ -281,8 +356,12 @@ func runtimeinfoApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/runtimeinfo"
+	startTs := time.Now()
 	ri, err := apiV1Client.Runtimeinfo(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting runtime info from Prometheus: %w", err)
 	}
 
@@ -298,8 +377,12 @@ func rulesApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/rules"
+	startTs := time.Now()
 	rules, err := apiV1Client.Rules(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting rules from Prometheus: %w", err)
 	}
 
@@ -315,8 +398,12 @@ func targetsApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/targets"
+	startTs := time.Now()
 	targets, err := apiV1Client.Targets(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting targets from Prometheus: %w", err)
 	}
 
@@ -332,8 +419,12 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/targets/metadata"
+	startTs := time.Now()
 	tm, err := apiV1Client.TargetsMetadata(ctx, matchTarget, metric, limit)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting target metadata from Prometheus: %w", err)
 	}
 
@@ -349,8 +440,12 @@ func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, e
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/metadata"
+	startTs := time.Now()
 	mm, err := apiV1Client.Metadata(ctx, metric, limit)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting metric metadata from Prometheus: %w", err)
 	}
 
@@ -366,8 +461,12 @@ func walReplayApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/status/walreplay"
+	startTs := time.Now()
 	wal, err := apiV1Client.WalReplay(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error getting WAL replay status from Prometheus: %w", err)
 	}
 
@@ -383,7 +482,12 @@ func cleanTombstonesApiCall(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
-	if err := apiV1Client.CleanTombstones(ctx); err != nil {
+	path := "/api/v1/admin/tsdb/clean_tombstones"
+	startTs := time.Now()
+	err := apiV1Client.CleanTombstones(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
+	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error cleaning tombstones from Prometheus: %w", err)
 	}
 
@@ -394,7 +498,12 @@ func deleteSeriesApiCall(ctx context.Context, matches []string, start, end time.
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
-	if err := apiV1Client.DeleteSeries(ctx, matches, start, end); err != nil {
+	path := "/api/v1/admin/tsdb/delete_series"
+	startTs := time.Now()
+	err := apiV1Client.DeleteSeries(ctx, matches, start, end)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
+	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error deleting series from Prometheus: %w", err)
 	}
 
@@ -405,8 +514,12 @@ func snapshotApiCall(ctx context.Context, skipHead bool) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
+	path := "/api/v1/admin/tsdb/snapshot"
+	startTs := time.Now()
 	ss, err := apiV1Client.Snapshot(ctx, skipHead)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
 		return "", fmt.Errorf("error creating Prometheus snapshot: %w", err)
 	}
 
