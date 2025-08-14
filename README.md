@@ -18,6 +18,8 @@ Here is a screen recording using Google Gemini models to report on the health of
 > you feel may provide insight into the status of the prometheus instance,
 > including analyzing metrics and executing queries
 
+:warning: _NOTE_: I used `yolo` mode in the demo to auto-accept tool usage. You probably shouldn't do this. Please read/understand/approve your tool usage, don't just let the LLM go wild. That's how you end up with robot overlords.
+
 [![Demo prompt to review the health of the demo.prometheus.io prometheus instance](images/demo-usage-with-prometheus-demo-server.gif)](https://asciinema.org/a/733513)
 
 ### Tools
