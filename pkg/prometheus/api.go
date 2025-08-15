@@ -6,7 +6,6 @@ import (
 
 	"github.com/prometheus/client_golang/api"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	config_util "github.com/prometheus/common/config"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
 )
@@ -38,32 +37,14 @@ func (u userAgentRoundTripper) RoundTrip(r *http.Request) (*http.Response, error
 	return u.rt.RoundTrip(r)
 }
 
-func NewAPIClient(prometheusUrl, httpConfig string) (promv1.API, error) {
-	httpClient := http.DefaultClient
-	if httpConfig != "" {
-		httpCfg, _, err := config_util.LoadHTTPConfigFile(httpConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load HTTP configuration file %s: %w", httpConfig, err)
-		}
-
-		if err = httpCfg.Validate(); err != nil {
-			return nil, fmt.Errorf("failed to validate HTTP configuration file %s: %w", httpConfig, err)
-		}
-
-		httpClient, err = config_util.NewClientFromConfig(*httpCfg, "prometheus-mcp-server")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP client from configuration file %s: %w", httpConfig, err)
-		}
-	}
-
-	t := http.DefaultTransport
-	if httpClient.Transport != nil {
-		t = httpClient.Transport
+func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error) {
+	if rt == nil {
+		rt = http.DefaultTransport
 	}
 
 	uart := userAgentRoundTripper{
 		name: userAgent,
-		rt:   t,
+		rt:   rt,
 	}
 
 	client, err := api.NewClient(api.Config{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -49,8 +50,8 @@ func init() {
 }
 
 // NewAPIClient creates a new prometheus v1 API client for use by the MCP server
-func NewAPIClient(prometheusUrl, httpConfig string) error {
-	client, err := mcpProm.NewAPIClient(prometheusUrl, httpConfig)
+func NewAPIClient(prometheusUrl string, rt http.RoundTripper) error {
+	client, err := mcpProm.NewAPIClient(prometheusUrl, rt)
 	if err != nil {
 		return fmt.Errorf("failed to create prometheus API client: %w", err)
 	}
