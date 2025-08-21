@@ -104,12 +104,13 @@ func main() {
 		logger.Error("Failed to load HTTP config file, using default HTTP round tripper", "err", err)
 	}
 
-	if err := mcp.NewAPIClient(*flagPrometheusUrl, rt); err != nil {
+	ctx := context.Background()
+	client, err := mcp.NewAPIClient(*flagPrometheusUrl, rt)
+	if err != nil {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 
-	ctx := context.Background()
-	mcpServer := mcp.NewServer(logger, *flagEnableTsdbAdminTools)
+	mcpServer := mcp.NewServer(logger, client, *flagEnableTsdbAdminTools)
 	srv := setupServer(logger)
 
 	var g run.Group
