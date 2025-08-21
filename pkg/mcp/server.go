@@ -9,6 +9,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
@@ -61,7 +62,27 @@ func init() {
 	)
 }
 
-func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer {
+// Context key for embedding Prometheus' API client into a context for use with
+// tool calls. Avoids the need for global/external state to maintain the API
+// client otherwise.
+type apiClientKey struct{}
+
+type clientLoaderMiddleware struct {
+	client promv1.API
+}
+
+func newClientLoaderMiddleware(c promv1.API) *clientLoaderMiddleware {
+	return &clientLoaderMiddleware{client: c}
+}
+
+func (m *clientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		ctx = context.WithValue(ctx, apiClientKey{}, m.client)
+		return next(ctx, req)
+	}
+}
+
+func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -72,6 +93,9 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 		toolStats = toolCallStats{timings: make(map[float64]time.Time)}
 	})
 
+	// TODO: @tjhop: migrate before/after tool call hooks to tool
+	// middleware? would avoid need for a map to store tool call timings
+	// and the mutex/synchronization around it
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
 		method := message.Method
 		params := message.Params
@@ -115,6 +139,8 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 
 	// TODO: allow users to specify additional instructions/context?
 
+	clientLoaderMW := newClientLoaderMiddleware(client).ToolMiddleware
+
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
 		version.Info(),
@@ -122,7 +148,9 @@ func NewServer(logger *slog.Logger, enableTsdbAdminTools bool) *server.MCPServer
 		server.WithLogging(),
 		server.WithRecovery(),
 		server.WithHooks(hooks),
-		server.WithResourceCapabilities(true, true),
+		server.WithToolCapabilities(true),
+		server.WithToolHandlerMiddleware(clientLoaderMW),
+		server.WithResourceCapabilities(false, true),
 	)
 
 	// add resources
