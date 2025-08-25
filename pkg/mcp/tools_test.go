@@ -131,3 +131,136 @@ func TestQueryToolHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestRangeQueryToolHandler(t *testing.T) {
+	testCases := []struct {
+		name           string
+		request        mcp.CallToolRequest
+		mockQueryFunc  func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error)
+		validateResult func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "range_query",
+					Arguments: map[string]any{
+						"query":      "up",
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, "up", query)
+				return model.Matrix{}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "missing query",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "range_query",
+					Arguments: map[string]any{},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "query must be a string")
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "range_query",
+					Arguments: map[string]any{"query": "up"},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				return nil, nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "invalid start_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "range_query",
+					Arguments: map[string]any{"query": "up", "start_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+			},
+		},
+		{
+			name: "invalid end_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "range_query",
+					Arguments: map[string]any{"query": "up", "end_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+			},
+		},
+		{
+			name: "invalid step",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "range_query",
+					Arguments: map[string]any{"query": "up", "step": "not-a-real-duration"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse duration")
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(rangeQueryTool, rangeQueryToolHandler)
+
+	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.QueryRangeFunc = tc.mockQueryFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			require.NoError(t, err)
+
+			tc.validateResult(t, res, err)
+		})
+	}
+}
