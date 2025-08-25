@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -57,13 +58,21 @@ func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error
 	return client, nil
 }
 
-func getApiClientFromContext(ctx context.Context) promv1.API {
-	client, _ := ctx.Value(apiClientKey{}).(promv1.API)
-	return client
+func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
+	client, ok := ctx.Value(apiClientKey{}).(promv1.API)
+	if !ok {
+		return nil, errors.New("failed to get prometheus API client from context")
+
+	}
+
+	return client, nil
 }
 
 func alertmanagersApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -85,7 +94,10 @@ func alertmanagersApiCall(ctx context.Context) (string, error) {
 }
 
 func flagsApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -107,7 +119,10 @@ func flagsApiCall(ctx context.Context) (string, error) {
 }
 
 func listAlertsApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -129,7 +144,10 @@ func listAlertsApiCall(ctx context.Context) (string, error) {
 }
 
 func tsdbStatsApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -156,7 +174,10 @@ type queryApiResponse struct {
 }
 
 func queryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -183,7 +204,10 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 }
 
 func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -210,7 +234,10 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 }
 
 func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -232,7 +259,10 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 }
 
 func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -265,7 +295,10 @@ func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) 
 }
 
 func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -292,7 +325,10 @@ func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Ti
 }
 
 func labelValuesApiCall(ctx context.Context, label string, matches []string, start, end time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -324,7 +360,10 @@ func labelValuesApiCall(ctx context.Context, label string, matches []string, sta
 }
 
 func buildinfoApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -346,7 +385,10 @@ func buildinfoApiCall(ctx context.Context) (string, error) {
 }
 
 func configApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -368,7 +410,10 @@ func configApiCall(ctx context.Context) (string, error) {
 }
 
 func runtimeinfoApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -390,7 +435,10 @@ func runtimeinfoApiCall(ctx context.Context) (string, error) {
 }
 
 func rulesApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -412,7 +460,10 @@ func rulesApiCall(ctx context.Context) (string, error) {
 }
 
 func targetsApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -434,7 +485,10 @@ func targetsApiCall(ctx context.Context) (string, error) {
 }
 
 func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit string) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -456,7 +510,10 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 }
 
 func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -478,7 +535,10 @@ func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, e
 }
 
 func walReplayApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
@@ -500,13 +560,16 @@ func walReplayApiCall(ctx context.Context) (string, error) {
 }
 
 func cleanTombstonesApiCall(ctx context.Context) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
 	path := "/api/v1/admin/tsdb/clean_tombstones"
 	startTs := time.Now()
-	err := client.CleanTombstones(ctx)
+	err = client.CleanTombstones(ctx)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
@@ -517,13 +580,16 @@ func cleanTombstonesApiCall(ctx context.Context) (string, error) {
 }
 
 func deleteSeriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
 	path := "/api/v1/admin/tsdb/delete_series"
 	startTs := time.Now()
-	err := client.DeleteSeries(ctx, matches, start, end)
+	err = client.DeleteSeries(ctx, matches, start, end)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
@@ -534,7 +600,10 @@ func deleteSeriesApiCall(ctx context.Context, matches []string, start, end time.
 }
 
 func snapshotApiCall(ctx context.Context, skipHead bool) (string, error) {
-	client := getApiClientFromContext(ctx)
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
 
