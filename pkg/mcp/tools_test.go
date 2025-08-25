@@ -334,3 +334,121 @@ func TestSnapshotToolHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteSeriesToolHandler(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		request              mcp.CallToolRequest
+		mockDeleteSeriesFunc func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error
+		validateResult       func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "delete_series",
+					Arguments: map[string]any{
+						"matches":    []string{"up"},
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
+				require.Equal(t, []string{"up"}, matches)
+				return nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "missing matches",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "delete_series",
+					Arguments: map[string]any{},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "matches must be an array")
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "delete_series",
+					Arguments: map[string]any{"matches": []string{"up"}},
+				},
+			},
+			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
+				return errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "invalid start_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "delete_series",
+					Arguments: map[string]any{"matches": []string{"up"}, "start_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+			},
+		},
+		{
+			name: "invalid end_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "delete_series",
+					Arguments: map[string]any{"matches": []string{"up"}, "end_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(deleteSeriesTool, deleteSeriesToolHandler)
+
+	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.DeleteSeriesFunc = tc.mockDeleteSeriesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			require.NoError(t, err)
+
+			tc.validateResult(t, res, err)
+		})
+	}
+}
