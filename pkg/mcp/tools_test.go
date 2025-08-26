@@ -1026,3 +1026,69 @@ func TestBuildinfoToolHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestFlagsToolHandler(t *testing.T) {
+	testCases := []struct {
+		name           string
+		request        mcp.CallToolRequest
+		mockFlagsFunc  func(ctx context.Context) (promv1.FlagsResult, error)
+		validateResult func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "flags",
+				},
+			},
+			mockFlagsFunc: func(ctx context.Context) (promv1.FlagsResult, error) {
+				return promv1.FlagsResult{}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "flags",
+				},
+			},
+			mockFlagsFunc: func(ctx context.Context) (promv1.FlagsResult, error) {
+				return promv1.FlagsResult{}, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(flagsTool, flagsToolHandler)
+
+	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.FlagsFunc = tc.mockFlagsFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			require.NoError(t, err)
+
+			tc.validateResult(t, res, err)
+		})
+	}
+}
