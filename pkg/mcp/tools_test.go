@@ -696,3 +696,69 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestListTargetsToolHandler(t *testing.T) {
+	testCases := []struct {
+		name            string
+		request         mcp.CallToolRequest
+		mockTargetsFunc func(ctx context.Context) (promv1.TargetsResult, error)
+		validateResult  func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "list_targets",
+				},
+			},
+			mockTargetsFunc: func(ctx context.Context) (promv1.TargetsResult, error) {
+				return promv1.TargetsResult{}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "list_targets",
+				},
+			},
+			mockTargetsFunc: func(ctx context.Context) (promv1.TargetsResult, error) {
+				return promv1.TargetsResult{}, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(targetsTool, targetsToolHandler)
+
+	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.TargetsFunc = tc.mockTargetsFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			require.NoError(t, err)
+
+			tc.validateResult(t, res, err)
+		})
+	}
+}
