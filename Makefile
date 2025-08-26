@@ -27,7 +27,10 @@ binary: fmt tidy lint ## build a binary
 
 build: binary ## alias for `binary`
 
-test: fmt tidy lint ## run tests
+build-all: ## test release process with goreleaser, does not publish/upload
+	goreleaser release --snapshot --clean
+
+test: fmt tidy ## run tests
 	go test -race -v ./...
 
 container: binary ## build container image with binary
