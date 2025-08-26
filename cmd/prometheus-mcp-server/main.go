@@ -17,6 +17,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/exporter-toolkit/web"
@@ -97,12 +98,19 @@ func main() {
 	logger := promslog.New(promslogConfig)
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
 
-	if err := mcp.NewAPIClient(*flagPrometheusUrl, *flagHttpConfig); err != nil {
-		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
+	// Optionally load HTTP config file to configure HTTP client for Prometheus API.
+	rt, err := getRoundTripperFromConfig(*flagHttpConfig)
+	if err != nil {
+		logger.Error("Failed to load HTTP config file, using default HTTP round tripper", "err", err)
 	}
 
 	ctx := context.Background()
-	mcpServer := mcp.NewServer(logger, *flagEnableTsdbAdminTools)
+	client, err := mcp.NewAPIClient(*flagPrometheusUrl, rt)
+	if err != nil {
+		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
+	}
+
+	mcpServer := mcp.NewServer(logger, client, *flagEnableTsdbAdminTools)
 	srv := setupServer(logger)
 
 	var g run.Group
@@ -244,4 +252,30 @@ func setupServer(logger *slog.Logger) *http.Server {
 	}
 
 	return server
+}
+
+func getRoundTripperFromConfig(httpConfig string) (http.RoundTripper, error) {
+	httpClient := http.DefaultClient
+	if httpConfig != "" {
+		httpCfg, _, err := config_util.LoadHTTPConfigFile(httpConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load HTTP configuration file %s: %w", httpConfig, err)
+		}
+
+		if err = httpCfg.Validate(); err != nil {
+			return nil, fmt.Errorf("failed to validate HTTP configuration file %s: %w", httpConfig, err)
+		}
+
+		httpClient, err = config_util.NewClientFromConfig(*httpCfg, "prometheus-mcp-server")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create HTTP client from configuration file %s: %w", httpConfig, err)
+		}
+	}
+
+	rt := http.DefaultTransport
+	if httpClient.Transport != nil {
+		rt = httpClient.Transport
+	}
+
+	return rt, nil
 }
