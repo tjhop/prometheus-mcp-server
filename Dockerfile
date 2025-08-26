@@ -1,4 +1,4 @@
-FROM alpine:latest as certs
+FROM alpine:latest AS certs
 RUN apk update && apk add ca-certificates
 
 FROM cgr.dev/chainguard/busybox:latest
