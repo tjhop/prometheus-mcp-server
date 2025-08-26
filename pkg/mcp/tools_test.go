@@ -1158,3 +1158,121 @@ func TestListAlertsToolHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestLabelValuesToolHandler(t *testing.T) {
+	testCases := []struct {
+		name                string
+		request             mcp.CallToolRequest
+		mockLabelValuesFunc func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error)
+		validateResult      func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_values",
+					Arguments: map[string]any{
+						"label":      "__name__",
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockLabelValuesFunc: func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error) {
+				require.Equal(t, "__name__", label)
+				return model.LabelValues{}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "missing label",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_values",
+					Arguments: map[string]any{},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "label must be a string")
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_values",
+					Arguments: map[string]any{"label": "up"},
+				},
+			},
+			mockLabelValuesFunc: func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error) {
+				return nil, nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "invalid start_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_values",
+					Arguments: map[string]any{"label": "up", "start_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+			},
+		},
+		{
+			name: "invalid end_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_values",
+					Arguments: map[string]any{"label": "up", "end_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(labelValuesTool, labelValuesToolHandler)
+
+	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.LabelValuesFunc = tc.mockLabelValuesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			require.NoError(t, err)
+
+			tc.validateResult(t, res, err)
+		})
+	}
+}
