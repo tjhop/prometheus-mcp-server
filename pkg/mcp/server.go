@@ -67,18 +67,27 @@ func init() {
 // client otherwise.
 type apiClientKey struct{}
 
-type clientLoaderMiddleware struct {
+type apiClientLoaderMiddleware struct {
 	client promv1.API
 }
 
-func newClientLoaderMiddleware(c promv1.API) *clientLoaderMiddleware {
-	return &clientLoaderMiddleware{client: c}
+func newApiClientLoaderMiddleware(c promv1.API) *apiClientLoaderMiddleware {
+	return &apiClientLoaderMiddleware{client: c}
 }
 
-func (m *clientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+func addApiClientToContext(ctx context.Context, c promv1.API) context.Context {
+	return context.WithValue(ctx, apiClientKey{}, c)
+}
+
+func (m *apiClientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctx = context.WithValue(ctx, apiClientKey{}, m.client)
-		return next(ctx, req)
+		return next(addApiClientToContext(ctx, m.client), req)
+	}
+}
+
+func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
+	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return next(addApiClientToContext(ctx, m.client), request)
 	}
 }
 
@@ -139,7 +148,8 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 
 	// TODO: allow users to specify additional instructions/context?
 
-	clientLoaderMW := newClientLoaderMiddleware(client).ToolMiddleware
+	apiClientLoaderToolMW := newApiClientLoaderMiddleware(client).ToolMiddleware
+	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(client).ResourceMiddleware
 
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
@@ -149,14 +159,14 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 		server.WithRecovery(),
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
-		server.WithToolHandlerMiddleware(clientLoaderMW),
+		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
 		server.WithResourceCapabilities(false, true),
 	)
 
 	// add resources
-	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
-	mcpServer.AddResource(targetsResource, targetsResourceHandler)
-	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
+	mcpServer.AddResource(listMetricsResource, apiClientLoaderResourceMW(listMetricsResourceHandler))
+	mcpServer.AddResource(targetsResource, apiClientLoaderResourceMW(targetsResourceHandler))
+	mcpServer.AddResource(tsdbStatsResource, apiClientLoaderResourceMW(tsdbStatsResourceHandler))
 
 	// add tools
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
