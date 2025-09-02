@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
@@ -34,6 +36,9 @@ const (
 )
 
 var (
+	//go:embed external/docs/docs
+	docsFs embed.FS
+
 	flagPrometheusUrl = kingpin.Flag(
 		"prometheus.url",
 		"URL of the Prometheus instance to connect to",
@@ -236,6 +241,20 @@ func setupServer(logger *slog.Logger) *http.Server {
 			web.LandingLinks{
 				Address: "/mcp",
 				Text:    "Prometheus MCP Server",
+			},
+		)
+	}
+
+	// Setup static file server for embedded prometheus docs.
+	docs, err := fs.Sub(docsFs, "external/docs/docs")
+	if err != nil {
+		logger.Error("Failed to create sub FS for embedded docs", "err", err)
+	} else {
+		http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(docs))))
+		landingPageLinks = append(landingPageLinks,
+			web.LandingLinks{
+				Address: "/docs/",
+				Text:    "Prometheus Documentation",
 			},
 		)
 	}
