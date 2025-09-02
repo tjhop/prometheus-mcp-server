@@ -104,7 +104,8 @@ func main() {
 		logger.Error("Failed to load HTTP config file, using default HTTP round tripper", "err", err)
 	}
 
-	ctx := context.Background()
+	ctx, rootCtxCancel := context.WithCancel(context.Background())
+	defer rootCtxCancel()
 	client, err := mcp.NewAPIClient(*flagPrometheusUrl, rt)
 	if err != nil {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
@@ -131,6 +132,7 @@ func main() {
 			},
 			func(err error) {
 				close(cancel)
+				rootCtxCancel()
 			},
 		)
 	}
@@ -155,6 +157,7 @@ func main() {
 					logger.Error("failed to close listeners/context timeout", "err", err)
 				}
 				close(cancel)
+				rootCtxCancel()
 			},
 		)
 	}
@@ -188,6 +191,7 @@ func main() {
 			},
 			func(err error) {
 				close(cancel)
+				rootCtxCancel()
 			},
 		)
 	}
