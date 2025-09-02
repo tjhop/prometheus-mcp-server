@@ -5,5 +5,5 @@
 .golangci-lint/
 
 dist/
-prometheus-mcp-server
+/prometheus-mcp-server
 mcp.json
