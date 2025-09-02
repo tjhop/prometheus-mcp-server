@@ -160,13 +160,14 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
+		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
 		server.WithResourceCapabilities(false, true),
 	)
 
 	// add resources
-	mcpServer.AddResource(listMetricsResource, apiClientLoaderResourceMW(listMetricsResourceHandler))
-	mcpServer.AddResource(targetsResource, apiClientLoaderResourceMW(targetsResourceHandler))
-	mcpServer.AddResource(tsdbStatsResource, apiClientLoaderResourceMW(tsdbStatsResourceHandler))
+	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
+	mcpServer.AddResource(targetsResource, targetsResourceHandler)
+	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
 
 	// add tools
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
