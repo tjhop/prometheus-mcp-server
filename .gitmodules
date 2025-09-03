@@ -1,0 +1,3 @@
+[submodule "cmd/prometheus-mcp-server/external/docs"]
+	path = cmd/prometheus-mcp-server/external/docs
+	url = https://github.com/prometheus/docs.git
