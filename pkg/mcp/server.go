@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"embed"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -77,6 +78,15 @@ func newApiClientLoaderMiddleware(c promv1.API) *apiClientLoaderMiddleware {
 
 func addApiClientToContext(ctx context.Context, c promv1.API) context.Context {
 	return context.WithValue(ctx, apiClientKey{}, c)
+}
+
+func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
+	client, ok := ctx.Value(apiClientKey{}).(promv1.API)
+	if !ok {
+		return nil, errors.New("failed to get prometheus API client from context")
+	}
+
+	return client, nil
 }
 
 func (m *apiClientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
