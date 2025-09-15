@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"sync"
 	"time"
@@ -101,7 +102,36 @@ func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandl
 	}
 }
 
-func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool) *server.MCPServer {
+type docsKey struct{}
+type docsLoaderMiddleware struct {
+	fsys fs.FS
+}
+
+func newDocsLoaderMiddleware(fsys fs.FS) *docsLoaderMiddleware {
+	docsMW := docsLoaderMiddleware{
+		fsys: fsys,
+	}
+
+	return &docsMW
+}
+
+func getDocsFsFromContext(ctx context.Context) (fs.FS, error) {
+	docs, ok := ctx.Value(docsKey{}).(fs.FS)
+	if !ok {
+		return nil, errors.New("failed to get docs FS from context")
+	}
+
+	return docs, nil
+}
+
+func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
+	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		ctx = context.WithValue(ctx, docsKey{}, m.fsys)
+		return next(ctx, request)
+	}
+}
+
+func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -160,6 +190,7 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 
 	apiClientLoaderToolMW := newApiClientLoaderMiddleware(client).ToolMiddleware
 	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(client).ResourceMiddleware
+	docsLoaderResourceMW := newDocsLoaderMiddleware(docs).ResourceMiddleware
 
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
@@ -171,6 +202,7 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
 		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
+		server.WithResourceHandlerMiddleware(docsLoaderResourceMW),
 		server.WithResourceCapabilities(false, true),
 	)
 
@@ -178,6 +210,13 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
 	mcpServer.AddResource(targetsResource, targetsResourceHandler)
 	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
+	mcpServer.AddResource(docsListResource, docsListResourceHandler)
+
+	// add resource templates
+
+	// Waiting on resource template middleware support to be added upstream
+	// https://github.com/mark3labs/mcp-go/pull/582
+	mcpServer.AddResourceTemplate(docsReadResourceTemplate, server.ResourceTemplateHandlerFunc(docsLoaderResourceMW(docsReadResourceTemplateHandler)))
 
 	// add tools
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
