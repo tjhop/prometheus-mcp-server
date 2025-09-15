@@ -2,7 +2,11 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -31,6 +35,20 @@ var (
 		"TSDB Stats",
 		mcp.WithResourceDescription("Usage and cardinality statistics from the TSDB"),
 		mcp.WithMIMEType("application/json"),
+	)
+
+	docsListResource = mcp.NewResource(
+		resourcePrefix+"docs",
+		"List of Official Prometheus Documentation Files",
+		mcp.WithResourceDescription("List ofarkdown files containing the official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithMIMEType("text/plain"),
+	)
+
+	docsReadResourceTemplate = mcp.NewResourceTemplate(
+		resourcePrefix+"docs{/file*}",
+		"Official Prometheus Documentation",
+		mcp.WithTemplateDescription("Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithTemplateMIMEType("text/markdown"),
 	)
 )
 
@@ -77,4 +95,71 @@ func tsdbStatsResourceHandler(ctx context.Context, request mcp.ReadResourceReque
 			Text:     tsdbStats,
 		},
 	}, nil
+}
+
+func docsListResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	docs, err := getDocsFsFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get docs: %w", err)
+	}
+
+	var names []string
+	err = fs.WalkDir(docs, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			names = append(names, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk docs directory: %w", err)
+	}
+
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      resourcePrefix + "list_docs",
+			MIMEType: "text/plain",
+			Text:     strings.Join(names, "\n"),
+		},
+	}, nil
+}
+
+func docsReadResourceTemplateHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	filenames, ok := request.Params.Arguments["file"].([]string)
+	if !ok {
+		return nil, errors.New("failed to get filenames to read from resource request")
+	}
+
+	if len(filenames) < 1 {
+		return nil, errors.New("at least 1 filename is required when requesting docs to read")
+	}
+
+	docs, err := getDocsFsFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get docs: %w", err)
+	}
+
+	var resourceContents []mcp.ResourceContents
+	for _, fname := range filenames {
+		f, err := docs.Open(fname)
+		if err != nil {
+			return nil, fmt.Errorf("error opening file from docs: %w", err)
+		}
+		defer f.Close()
+
+		content, err := io.ReadAll(f)
+		if err != nil {
+			return nil, fmt.Errorf("error reading file from docs: %w", err)
+		}
+
+		resourceContents = append(resourceContents, mcp.TextResourceContents{
+			URI:      request.Params.URI,
+			MIMEType: "text/markdown",
+			Text:     string(content), // TODO: @tjhop: strip markdown frontmatter?
+		})
+	}
+
+	return resourceContents, nil
 }

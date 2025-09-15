@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -53,16 +52,6 @@ func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error
 	client, err := mcpProm.NewAPIClient(prometheusUrl, rt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus API client: %w", err)
-	}
-
-	return client, nil
-}
-
-func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
-	client, ok := ctx.Value(apiClientKey{}).(promv1.API)
-	if !ok {
-		return nil, errors.New("failed to get prometheus API client from context")
-
 	}
 
 	return client, nil

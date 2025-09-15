@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
@@ -34,6 +36,10 @@ const (
 )
 
 var (
+	//go:embed external/docs/docs
+	assetsDocs embed.FS
+	docsFs     fs.FS
+
 	flagPrometheusUrl = kingpin.Flag(
 		"prometheus.url",
 		"URL of the Prometheus instance to connect to",
@@ -96,6 +102,7 @@ func main() {
 	}
 
 	logger := promslog.New(promslogConfig)
+	slog.SetDefault(logger)
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "go_version", runtime.Version())
 
 	// Optionally load HTTP config file to configure HTTP client for Prometheus API.
@@ -111,7 +118,15 @@ func main() {
 		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
 	}
 
-	mcpServer := mcp.NewServer(logger, client, *flagEnableTsdbAdminTools)
+	// Setup static file server for embedded prometheus docs.
+	docs, err := fs.Sub(assetsDocs, "external/docs/docs")
+	if err != nil {
+		logger.Error("Failed to create sub FS for embedded docs", "err", err)
+	} else {
+		docsFs = docs
+	}
+
+	mcpServer := mcp.NewServer(logger, client, *flagEnableTsdbAdminTools, docsFs)
 	srv := setupServer(logger)
 
 	var g run.Group
@@ -236,6 +251,16 @@ func setupServer(logger *slog.Logger) *http.Server {
 			web.LandingLinks{
 				Address: "/mcp",
 				Text:    "Prometheus MCP Server",
+			},
+		)
+	}
+
+	if docsFs != nil {
+		http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(docsFs))))
+		landingPageLinks = append(landingPageLinks,
+			web.LandingLinks{
+				Address: "/docs/",
+				Text:    "Prometheus Documentation",
 			},
 		)
 	}
