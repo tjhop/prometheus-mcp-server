@@ -1,7 +1,26 @@
 version: "2"
 linters:
   enable:
+    # Not needed right now
+    # - depguard
+    - errorlint
+    - exptostd
+    - fatcontext
+    - gocritic
+    - godot
+    - govet
+    - misspell
+    - nilnesserr
+    - nolintlint
+    - perfsprint
+    - predeclared
+    # - revive
     - sloglint
+    - testifylint
+    - unconvert
+    - unused
+    - usestdlibvars
+    - whitespace
   settings:
     errcheck:
       exclude-functions:
