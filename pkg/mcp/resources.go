@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	// Resources
 	resourcePrefix = "prometheus://"
 
+	// Resources.
 	listMetricsResource = mcp.NewResource(
 		resourcePrefix+"list_metrics",
 		"List metrics",
