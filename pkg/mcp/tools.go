@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// Tools
+	// Tools.
 	queryTool = mcp.NewTool("query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
 		mcp.WithString("query",
@@ -173,7 +173,7 @@ var (
 		mcp.WithDescription("Get current WAL replay status"),
 	)
 
-	// Prometheus TSDB admin APIs
+	// Prometheus TSDB admin APIs.
 	cleanTombstonesTool = mcp.NewTool("clean_tombstones",
 		mcp.WithDescription("Removes the deleted data from disk and cleans up the existing tombstones"),
 	)
@@ -503,7 +503,6 @@ func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest
 }
 
 // // Metadata returns metadata about metrics currently scraped by the metric name.
-// Metadata(ctx context.Context, metric, limit string) (map[string][]Metadata, error)
 func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	metric := request.GetString("metric", "")
 	limit := request.GetString("limit", "")

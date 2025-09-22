@@ -55,7 +55,7 @@ func TestQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.False(t, result.IsError)
-				require.Equal(t, `{"result":"{} =\u003e 1 @[1756143048]","warnings":null}`, toolCallResultAsString(result))
+				require.JSONEq(t, `{"result":"{} =\u003e 1 @[1756143048]","warnings":null}`, toolCallResultAsString(result))
 			},
 		},
 		{

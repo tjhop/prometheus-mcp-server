@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -157,7 +158,8 @@ func main() {
 
 		g.Add(
 			func() error {
-				if err := web.ListenAndServe(srv, toolkitFlags, logger); err != http.ErrServerClosed {
+				err := web.ListenAndServe(srv, toolkitFlags, logger)
+				if !errors.Is(err, http.ErrServerClosed) {
 					logger.Error("webserver failed", "err", err)
 					return err
 				}
@@ -213,6 +215,23 @@ func main() {
 
 	if err := g.Run(); err != nil {
 		logger.Error("Failed to run daemon goroutines", "err", err)
+		rootCtxCancel()
+
+		// Gocritic complains here because of the deferred call to
+		// cancel the root context above not getting called when
+		// os.Exit runs immediately. Valid, but we already call the
+		// cancel func in each run group's interrupt func (it's safe to
+		// call a context cancellation func multiple times, it's a noop
+		// after the first call). We also explicitly call it prior to
+		// exit here. I can refactor main to call a secondary function
+		// that returns an error to avoid conflicting with the
+		// context/cancellation lifecycle, but that becomes trickier
+		// with the main func because there's also a deferred call to
+		// close the log file if using `--log.file=$file`, and it
+		// doesn't feel worth the effort. We already know the context
+		// is cancelled by this point, just ask gocritic to be quiet.
+		//
+		//nolint:gocritic
 		os.Exit(1)
 	}
 	logger.Info("See you next time!")

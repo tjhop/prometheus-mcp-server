@@ -47,7 +47,7 @@ func init() {
 	)
 }
 
-// NewAPIClient creates a new prometheus v1 API client for use by the MCP server
+// NewAPIClient creates a new prometheus v1 API client for use by the MCP server.
 func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error) {
 	client, err := mcpProm.NewAPIClient(prometheusUrl, rt)
 	if err != nil {
