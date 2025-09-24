@@ -115,6 +115,10 @@ func newDocsLoaderMiddleware(fsys fs.FS) *docsLoaderMiddleware {
 	return &docsMW
 }
 
+func addDocsToContext(ctx context.Context, fsys fs.FS) context.Context {
+	return context.WithValue(ctx, docsKey{}, fsys)
+}
+
 func getDocsFsFromContext(ctx context.Context) (fs.FS, error) {
 	docs, ok := ctx.Value(docsKey{}).(fs.FS)
 	if !ok {
@@ -124,14 +128,19 @@ func getDocsFsFromContext(ctx context.Context) (fs.FS, error) {
 	return docs, nil
 }
 
-func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
-	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		ctx = context.WithValue(ctx, docsKey{}, m.fsys)
-		return next(ctx, request)
+func (m *docsLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return next(addDocsToContext(ctx, m.fsys), req)
 	}
 }
 
-func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
+func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
+	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return next(addDocsToContext(ctx, m.fsys), request)
+	}
+}
+
+func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -188,8 +197,10 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 
 	// TODO: allow users to specify additional instructions/context?
 
-	apiClientLoaderToolMW := newApiClientLoaderMiddleware(client).ToolMiddleware
-	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(client).ResourceMiddleware
+	// Add middlewares.
+	apiClientLoaderToolMW := newApiClientLoaderMiddleware(apiClient).ToolMiddleware
+	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(apiClient).ResourceMiddleware
+	docsLoaderToolMW := newDocsLoaderMiddleware(docs).ToolMiddleware
 	docsLoaderResourceMW := newDocsLoaderMiddleware(docs).ResourceMiddleware
 
 	mcpServer := server.NewMCPServer(
@@ -198,27 +209,29 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 		server.WithInstructions(instrx),
 		server.WithLogging(),
 		server.WithRecovery(),
+		server.WithResourceRecovery(),
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
+		server.WithToolHandlerMiddleware(docsLoaderToolMW),
 		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
 		server.WithResourceHandlerMiddleware(docsLoaderResourceMW),
 		server.WithResourceCapabilities(false, true),
 	)
 
-	// add resources
+	// Add resources.
 	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
 	mcpServer.AddResource(targetsResource, targetsResourceHandler)
 	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
 	mcpServer.AddResource(docsListResource, docsListResourceHandler)
 
-	// add resource templates
+	// Add resource templates.
 
 	// Waiting on resource template middleware support to be added upstream
 	// https://github.com/mark3labs/mcp-go/pull/582
 	mcpServer.AddResourceTemplate(docsReadResourceTemplate, server.ResourceTemplateHandlerFunc(docsLoaderResourceMW(docsReadResourceTemplateHandler)))
 
-	// add tools
+	// Add tools.
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
 	mcpServer.AddTool(buildinfoTool, buildinfoToolHandler)
 	mcpServer.AddTool(configTool, configToolHandler)
@@ -237,6 +250,8 @@ func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool
 	mcpServer.AddTool(targetsTool, targetsToolHandler)
 	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
 	mcpServer.AddTool(walReplayTool, walReplayToolHandler)
+	mcpServer.AddTool(docsListTool, docsListToolHandler)
+	mcpServer.AddTool(docsReadTool, docsReadToolHandler)
 
 	// if enabled at cli by flag, allow using the TSDB admin APIs
 	if enableTsdbAdminTools {

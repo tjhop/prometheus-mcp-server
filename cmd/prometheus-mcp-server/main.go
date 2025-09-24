@@ -127,7 +127,7 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(logger, client, *flagEnableTsdbAdminTools, docsFs)
+	mcpServer := mcp.NewServer(ctx, logger, client, *flagEnableTsdbAdminTools, docsFs)
 	srv := setupServer(logger)
 
 	var g run.Group

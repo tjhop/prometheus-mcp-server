@@ -45,8 +45,11 @@ docker: container ## alias for `container`
 mcphost: build ## use mcphost to run the prometheus-mcp-server against a local ollama model
 	mcphost --debug --config ./mcp.json --model "${OLLAMA_MODEL}"
 
-inspector: build ## use inspector to run the prometheus-mcp-server
+inspector: build ## use inspector to run the prometheus-mcp-server in STDIO transport mode
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
+
+inspector-http: build ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
+	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}-http"
 
 open-webui: build ## use open-webui to run the prometheus-mcp-server
 	podman run --rm -d -p 11119:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui "ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}"
