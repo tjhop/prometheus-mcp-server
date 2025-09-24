@@ -209,6 +209,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 		server.WithInstructions(instrx),
 		server.WithLogging(),
 		server.WithRecovery(),
+		server.WithResourceRecovery(),
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
