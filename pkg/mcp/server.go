@@ -219,19 +219,19 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 		server.WithResourceCapabilities(false, true),
 	)
 
-	// add resources
+	// Add resources.
 	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
 	mcpServer.AddResource(targetsResource, targetsResourceHandler)
 	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
 	mcpServer.AddResource(docsListResource, docsListResourceHandler)
 
-	// add resource templates
+	// Add resource templates.
 
 	// Waiting on resource template middleware support to be added upstream
 	// https://github.com/mark3labs/mcp-go/pull/582
 	mcpServer.AddResourceTemplate(docsReadResourceTemplate, server.ResourceTemplateHandlerFunc(docsLoaderResourceMW(docsReadResourceTemplateHandler)))
 
-	// add tools
+	// Add tools.
 	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
 	mcpServer.AddTool(buildinfoTool, buildinfoToolHandler)
 	mcpServer.AddTool(configTool, configToolHandler)

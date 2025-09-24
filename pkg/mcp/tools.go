@@ -15,6 +15,8 @@ import (
 
 var (
 	// Tools.
+
+	// Tools for Prometheus API.
 	queryTool = mcp.NewTool("query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
 		mcp.WithString("query",
@@ -175,7 +177,7 @@ var (
 		mcp.WithDescription("Get current WAL replay status"),
 	)
 
-	// Prometheus TSDB admin APIs.
+	// Tools for Prometheus TSDB admin APIs.
 	cleanTombstonesTool = mcp.NewTool("clean_tombstones",
 		mcp.WithDescription("Removes the deleted data from disk and cleans up the existing tombstones"),
 	)
