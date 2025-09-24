@@ -17,8 +17,7 @@ builds:
     binary: prometheus-mcp-server
     main: './cmd/prometheus-mcp-server'
 gomod:
-  proxy: true
-  mod: mod
+  proxy: false
 dockers:
   # build amd64 container image
   - image_templates:
