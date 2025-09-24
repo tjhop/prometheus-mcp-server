@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -201,7 +203,32 @@ var (
 			mcp.Description("[Optional] Skip data present in the head block."),
 		),
 	)
+
+	// Tools for Prometheus documentation.
+	docsListTool = mcp.NewTool("docs_list",
+		mcp.WithDescription("List of Official Prometheus Documentation Files."),
+	)
+
+	docsReadTool = mcp.NewTool("docs_read",
+		mcp.WithDescription("Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithString("file",
+			mcp.Required(),
+			mcp.Description("The name of the documentation file to read"),
+		),
+	)
 )
+
+func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) string {
+	var out strings.Builder
+
+	for _, rc := range resourceContents {
+		if textRC, ok := rc.(mcp.TextResourceContents); ok {
+			out.WriteString(textRC.Text)
+		}
+	}
+
+	return out.String()
+}
 
 func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
@@ -574,4 +601,38 @@ func snapshotToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
+}
+
+func docsListToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	var resourceReadReq mcp.ReadResourceRequest
+	resourceReadReq.Params.URI = resourcePrefix + "docs"
+
+	// There's probably a better way to have a tool call a resource using
+	// an in-process client or something similar, but this works for now.
+	res, err := docsListResourceHandler(ctx, resourceReadReq)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
+}
+
+func docsReadToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	f := request.GetString("file", "")
+
+	var resourceReadReq mcp.ReadResourceRequest
+	resourceReadReq.Params.URI = resourcePrefix + path.Join("docs", f)
+
+	args := make(map[string]any)
+	args["file"] = []string{f}
+	resourceReadReq.Params.Arguments = args
+
+	// There's probably a better way to have a tool call a resource using
+	// an in-process client or something similar, but this works for now.
+	res, err := docsReadResourceTemplateHandler(ctx, resourceReadReq)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
 }
