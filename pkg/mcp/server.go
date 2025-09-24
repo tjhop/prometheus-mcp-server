@@ -140,7 +140,7 @@ func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFun
 	}
 }
 
-func NewServer(logger *slog.Logger, client promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
+func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
