@@ -197,8 +197,9 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 
 	// TODO: allow users to specify additional instructions/context?
 
-	apiClientLoaderToolMW := newApiClientLoaderMiddleware(client).ToolMiddleware
-	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(client).ResourceMiddleware
+	// Add middlewares.
+	apiClientLoaderToolMW := newApiClientLoaderMiddleware(apiClient).ToolMiddleware
+	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(apiClient).ResourceMiddleware
 	docsLoaderToolMW := newDocsLoaderMiddleware(docs).ToolMiddleware
 	docsLoaderResourceMW := newDocsLoaderMiddleware(docs).ResourceMiddleware
 
