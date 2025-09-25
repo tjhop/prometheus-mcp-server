@@ -81,34 +81,17 @@ For example:
 
 Please check the documentation for the tool being used/integrated for specific instructions and level of support.
 
-### Docker
-
-```shell
-docker run -it --rm ghcr.io/tjhop/prometheus-mcp-server <flags>
-```
-
-### Go
-With a working `go` environemnt, the `prometheus-mcp-server` can be installed like so:
-
-```shell
-go install github.com/tjhop/prometheus-mcp-server@latest
-/path/to/prometheus-mcp-server <flags>
-```
-
-_NOTE_: Installing via this method will result in a build without embedded metadata for version/build info. If you wish to fully recreate a release build as this project does, you will need to clone the project and use [goreleaser](https://goreleaser.com/) to make a build:
-
-```shell
-git clone https://github.com/tjhop/prometheus-mcp-server.git
-cd prometheus-mcp-server
-make build
-./dist/prometheus-mcp-server_linux_amd64_v1/prometheus-mcp-server <flags>
-```
-
 ### Binary
 Download a release appropriate for your system from the [Releases](https://github.com/tjhop/prometheus-mcp-server/releases) page.
 
 ```shell
 /path/to/prometheus-mcp-server <flags>
+```
+
+### Docker
+
+```shell
+docker run -it --rm ghcr.io/tjhop/prometheus-mcp-server <flags>
 ```
 
 ### System Packages
