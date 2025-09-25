@@ -29,6 +29,8 @@ Here is a screen recording using Google Gemini models to report on the health of
 | `alertmanagers` | Get overview of Prometheus Alertmanager discovery |
 | `build_info` | Get Prometheus build information |
 | `config` | Get Prometheus configuration |
+| `docs_list` | List of Official Prometheus Documentation Files |
+| `docs_read` | Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo |
 | `exemplars_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
@@ -62,9 +64,11 @@ __NOTE:__
 
 | Resource Name | Resource URI | Description | 
 | --- | --- | --- |
-| List Metrics | `prometheus://list_metrics` | List metrics available |
-| Targets | `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
-| TSDB Stats | `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
+| `prometheus://list_metrics` | List metrics available |
+| `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
+| `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
+| `prometheus://docs` | List of official Prometheus Documentation files |
+| `prometheus://docs{/file*}` | Read official Prometheus Documentation files by name | 
 
 ### Prompts
 
@@ -81,34 +85,17 @@ For example:
 
 Please check the documentation for the tool being used/integrated for specific instructions and level of support.
 
-### Docker
-
-```shell
-docker run -it --rm ghcr.io/tjhop/prometheus-mcp-server <flags>
-```
-
-### Go
-With a working `go` environemnt, the `prometheus-mcp-server` can be installed like so:
-
-```shell
-go install github.com/tjhop/prometheus-mcp-server@latest
-/path/to/prometheus-mcp-server <flags>
-```
-
-_NOTE_: Installing via this method will result in a build without embedded metadata for version/build info. If you wish to fully recreate a release build as this project does, you will need to clone the project and use [goreleaser](https://goreleaser.com/) to make a build:
-
-```shell
-git clone https://github.com/tjhop/prometheus-mcp-server.git
-cd prometheus-mcp-server
-make build
-./dist/prometheus-mcp-server_linux_amd64_v1/prometheus-mcp-server <flags>
-```
-
 ### Binary
 Download a release appropriate for your system from the [Releases](https://github.com/tjhop/prometheus-mcp-server/releases) page.
 
 ```shell
 /path/to/prometheus-mcp-server <flags>
+```
+
+### Docker
+
+```shell
+docker run -it --rm ghcr.io/tjhop/prometheus-mcp-server <flags>
 ```
 
 ### System Packages
@@ -196,13 +183,15 @@ Targets:
   lint                           run linters
   binary                         build a binary
   build                          alias for `binary`
+  build-all                      test release process with goreleaser, does not publish/upload
   test                           run tests
   container                      build container image with binary
   image                          alias for `container`
   podman                         alias for `container`
   docker                         alias for `container`
   mcphost                        use mcphost to run the prometheus-mcp-server against a local ollama model
-  inspector                      use inspector to run the prometheus-mcp-server
+  inspector                      use inspector to run the prometheus-mcp-server in STDIO transport mode
+  inspector-http                 use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
   open-webui                     use open-webui to run the prometheus-mcp-server
   gemini                         use gemini-cli to run the prometheus-mcp-server against Google Gemini models
 ```
@@ -220,12 +209,21 @@ Flags:
       --prometheus.url="http://127.0.0.1:9090"  
                                  URL of the Prometheus instance to connect to
       --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options
+      --web.telemetry-path="/metrics"  
+                                 Path under which to expose metrics.
+      --web.max-requests=40      Maximum number of parallel scrape requests. Use 0 to disable.
       --[no-]dangerous.enable-tsdb-admin-tools  
                                  Enable and allow using tools that access Prometheus' TSDB Admin API endpoints (`snapshot`, `delete_series`, and `clean_tombstones` tools).
                                  This is dangerous, and allows for destructive operations like deleting data. It is not the fault of this MCP server if the LLM you're
                                  connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
       --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate)
       --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`].
+      --[no-]web.systemd-socket  Use systemd socket activation listeners instead of port listeners (Linux only).
+      --web.listen-address=:8080 ...  
+                                 Addresses on which to expose metrics and web interface. Repeatable for multiple addresses. Examples: `:9100` or `[::1]:9100` for http,
+                                 `vsock://:9100` for vsock
+      --web.config.file=""       Path to configuration file that can enable TLS or authentication. See:
+                                 https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
       --log.level=info           Only log messages with the given severity or above. One of: [debug, info, warn, error]
       --log.format=logfmt        Output format of log messages. One of: [logfmt, json]
       --[no-]version             Show application version.
