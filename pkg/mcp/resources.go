@@ -40,7 +40,7 @@ var (
 	docsListResource = mcp.NewResource(
 		resourcePrefix+"docs",
 		"List of Official Prometheus Documentation Files",
-		mcp.WithResourceDescription("List ofarkdown files containing the official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithResourceDescription("List of markdown files containing the official Prometheus documentation from the prometheus/docs repo"),
 		mcp.WithMIMEType("text/plain"),
 	)
 
