@@ -183,13 +183,15 @@ Targets:
   lint                           run linters
   binary                         build a binary
   build                          alias for `binary`
+  build-all                      test release process with goreleaser, does not publish/upload
   test                           run tests
   container                      build container image with binary
   image                          alias for `container`
   podman                         alias for `container`
   docker                         alias for `container`
   mcphost                        use mcphost to run the prometheus-mcp-server against a local ollama model
-  inspector                      use inspector to run the prometheus-mcp-server
+  inspector                      use inspector to run the prometheus-mcp-server in STDIO transport mode
+  inspector-http                 use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
   open-webui                     use open-webui to run the prometheus-mcp-server
   gemini                         use gemini-cli to run the prometheus-mcp-server against Google Gemini models
 ```
