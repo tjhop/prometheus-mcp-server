@@ -29,6 +29,8 @@ Here is a screen recording using Google Gemini models to report on the health of
 | `alertmanagers` | Get overview of Prometheus Alertmanager discovery |
 | `build_info` | Get Prometheus build information |
 | `config` | Get Prometheus configuration |
+| `docs_list` | List of Official Prometheus Documentation Files |
+| `docs_read` | Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo |
 | `exemplars_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
@@ -62,9 +64,11 @@ __NOTE:__
 
 | Resource Name | Resource URI | Description | 
 | --- | --- | --- |
-| List Metrics | `prometheus://list_metrics` | List metrics available |
-| Targets | `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
-| TSDB Stats | `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
+| `prometheus://list_metrics` | List metrics available |
+| `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
+| `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
+| `prometheus://docs` | List of official Prometheus Documentation files |
+| `prometheus://docs{/file*}` | Read official Prometheus Documentation files by name | 
 
 ### Prompts
 
