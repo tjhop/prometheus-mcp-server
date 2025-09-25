@@ -209,12 +209,21 @@ Flags:
       --prometheus.url="http://127.0.0.1:9090"  
                                  URL of the Prometheus instance to connect to
       --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options
+      --web.telemetry-path="/metrics"  
+                                 Path under which to expose metrics.
+      --web.max-requests=40      Maximum number of parallel scrape requests. Use 0 to disable.
       --[no-]dangerous.enable-tsdb-admin-tools  
                                  Enable and allow using tools that access Prometheus' TSDB Admin API endpoints (`snapshot`, `delete_series`, and `clean_tombstones` tools).
                                  This is dangerous, and allows for destructive operations like deleting data. It is not the fault of this MCP server if the LLM you're
                                  connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
       --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate)
       --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`].
+      --[no-]web.systemd-socket  Use systemd socket activation listeners instead of port listeners (Linux only).
+      --web.listen-address=:8080 ...  
+                                 Addresses on which to expose metrics and web interface. Repeatable for multiple addresses. Examples: `:9100` or `[::1]:9100` for http,
+                                 `vsock://:9100` for vsock
+      --web.config.file=""       Path to configuration file that can enable TLS or authentication. See:
+                                 https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
       --log.level=info           Only log messages with the given severity or above. One of: [debug, info, warn, error]
       --log.format=logfmt        Output format of log messages. One of: [logfmt, json]
       --[no-]version             Show application version.
