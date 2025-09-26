@@ -47,6 +47,24 @@ var (
 		},
 		[]string{"tool_name"},
 	)
+
+	metricResourceCallDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:                        prometheus.BuildFQName(metrics.MetricNamespace, "resource", "call_duration_seconds"),
+			Help:                        "Duration of resource calls, per resource, in seconds.",
+			Buckets:                     prometheus.ExponentialBuckets(0.25, 2, 10),
+			NativeHistogramBucketFactor: 1.1,
+		},
+		[]string{"resource_uri"},
+	)
+
+	metricResourceCallsFailed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: prometheus.BuildFQName(metrics.MetricNamespace, "resource", "calls_failed_total"),
+			Help: "Total number of failures per resource.",
+		},
+		[]string{"resource_uri"},
+	)
 )
 
 func init() {
@@ -54,6 +72,8 @@ func init() {
 		metricServerReady,
 		metricToolCallDuration,
 		metricToolCallsFailed,
+		metricResourceCallDuration,
+		metricResourceCallsFailed,
 	)
 }
 
@@ -170,6 +190,28 @@ func (m *telemetryMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server
 	}
 }
 
+func (m *telemetryMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
+	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		uri := request.Params.URI
+		args := request.Params.Arguments
+		m.logger.Debug("Calling resource", "resource_uri", uri, "request_arguments", args)
+
+		start := time.Now()
+		resourceResult, err := next(ctx, request)
+		dur := time.Since(start)
+
+		metricResourceCallDuration.With(prometheus.Labels{"resource_uri": uri}).Observe(dur.Seconds())
+		m.logger.Debug("Finished calling resource", "resource_uri", uri, "request_arguments", args, "duration", dur)
+		if err != nil {
+			// TODO: exemplars?
+			metricResourceCallsFailed.With(prometheus.Labels{"resource_uri": uri}).Inc()
+			m.logger.Error("Failed calling resource", "resource_uri", uri, "result", resourceResult, "error", err)
+		}
+
+		return resourceResult, err
+	}
+}
+
 func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
@@ -197,6 +239,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 
 	telemetryMW := newTelemetryMiddleware(logger)
 	telemetryToolMW := telemetryMW.ToolMiddleware
+	telemetryResourceMW := telemetryMW.ResourceMiddleware
 
 	// Actually create MCP server.
 	mcpServer := server.NewMCPServer(
@@ -213,6 +256,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 		server.WithToolHandlerMiddleware(telemetryToolMW),
 		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
 		server.WithResourceHandlerMiddleware(docsLoaderResourceMW),
+		server.WithResourceHandlerMiddleware(telemetryResourceMW),
 		server.WithResourceCapabilities(false, true),
 	)
 
