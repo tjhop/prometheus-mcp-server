@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -22,8 +21,7 @@ var (
 	//go:embed assets/*
 	assets embed.FS
 
-	instrx    string
-	toolStats toolCallStats
+	instrx string
 
 	metricServerReady = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -51,11 +49,6 @@ var (
 	)
 )
 
-type toolCallStats struct {
-	mu      sync.Mutex
-	timings map[float64]time.Time
-}
-
 func init() {
 	metrics.Registry.MustRegister(
 		metricServerReady,
@@ -64,11 +57,10 @@ func init() {
 	)
 }
 
-// Context key for embedding Prometheus' API client into a context for use with
-// tool calls. Avoids the need for global/external state to maintain the API
-// client otherwise.
+// Context key and middlewares for embedding Prometheus' API client into a
+// context for use with tool/resource calls. Avoids the need for
+// global/external state to maintain the API client otherwise.
 type apiClientKey struct{}
-
 type apiClientLoaderMiddleware struct {
 	client promv1.API
 }
@@ -102,6 +94,9 @@ func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandl
 	}
 }
 
+// Context key and middlewares for embedding Prometheus' docs as an fs.FS into
+// a context for use with tool/resource calls. Avoids the need for
+// global/external state to maintain the docs FS otherwise.
 type docsKey struct{}
 type docsLoaderMiddleware struct {
 	fsys fs.FS
@@ -140,53 +135,47 @@ func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFun
 	}
 }
 
+// Middlewares for telemetry to provide more ergonomic metrics/logging.
+type telemetryMiddleware struct {
+	logger *slog.Logger
+}
+
+func newTelemetryMiddleware(logger *slog.Logger) *telemetryMiddleware {
+	telemetryMW := telemetryMiddleware{
+		logger: logger,
+	}
+
+	return &telemetryMW
+}
+
+func (m *telemetryMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		name := req.Params.Name
+		args := req.GetArguments()
+		m.logger.Debug("Calling tool", "tool_name", name, "request_arguments", args)
+
+		start := time.Now()
+		toolResult, err := next(ctx, req)
+		dur := time.Since(start)
+
+		metricToolCallDuration.With(prometheus.Labels{"tool_name": name}).Observe(dur.Seconds())
+		m.logger.Debug("Finished calling tool", "tool_name", name, "request_arguments", args, "duration", dur)
+		if err != nil || toolResult.IsError {
+			// TODO: exemplars?
+			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
+			m.logger.Error("Failed calling tool", "tool_name", name, "result", toolResult, "error", err)
+		}
+
+		return toolResult, err
+	}
+}
+
 func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
-		logger.Debug("MCP server initialized", "id", id, "mcp_message", message, "mcp_result", result)
+		logger.Debug("MCP server initialized", "mcp_message", message, "mcp_result", result)
 		metricServerReady.Set(1)
-
-		// init tool call stats
-		toolStats = toolCallStats{timings: make(map[float64]time.Time)}
-	})
-
-	// TODO: @tjhop: migrate before/after tool call hooks to tool
-	// middleware? would avoid need for a map to store tool call timings
-	// and the mutex/synchronization around it
-	hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
-		method := message.Method
-		params := message.Params
-		args := message.GetArguments()
-		logger.Debug("Before Call Tool Hook", "request_method", method, "tool_name", params.Name, "request_arguments", args)
-
-		toolStats.mu.Lock()
-		defer toolStats.mu.Unlock()
-		toolStats.timings[id.(float64)] = time.Now()
-	})
-
-	hooks.AddAfterCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest, result *mcp.CallToolResult) {
-		idx := id.(float64)
-		name := message.Params.Name
-
-		toolStats.mu.Lock()
-		defer toolStats.mu.Unlock()
-		if start, ok := toolStats.timings[idx]; ok {
-			dur := time.Since(start)
-			method := message.Method
-			args := message.GetArguments()
-			logger.Debug("After Call Tool Hook", "request_method", method, "tool_name", name, "request_arguments", args, "tool_duration", dur.String())
-
-			// TODO: exemplars?
-			metricToolCallDuration.With(prometheus.Labels{"tool_name": name}).Observe(dur.Seconds())
-		}
-		delete(toolStats.timings, idx)
-
-		if result.IsError {
-			// TODO: exemplars?
-			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
-			logger.Error("Tool call failed", "tool_name", name, "error", result)
-		}
 	})
 
 	coreInstructions, err := assets.ReadFile("assets/instructions.md")
@@ -198,11 +187,18 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 	// TODO: allow users to specify additional instructions/context?
 
 	// Add middlewares.
-	apiClientLoaderToolMW := newApiClientLoaderMiddleware(apiClient).ToolMiddleware
-	apiClientLoaderResourceMW := newApiClientLoaderMiddleware(apiClient).ResourceMiddleware
-	docsLoaderToolMW := newDocsLoaderMiddleware(docs).ToolMiddleware
-	docsLoaderResourceMW := newDocsLoaderMiddleware(docs).ResourceMiddleware
+	apiClientLoaderMW := newApiClientLoaderMiddleware(apiClient)
+	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
+	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
+	docsLoaderMW := newDocsLoaderMiddleware(docs)
+	docsLoaderToolMW := docsLoaderMW.ToolMiddleware
+	docsLoaderResourceMW := docsLoaderMW.ResourceMiddleware
+
+	telemetryMW := newTelemetryMiddleware(logger)
+	telemetryToolMW := telemetryMW.ToolMiddleware
+
+	// Actually create MCP server.
 	mcpServer := server.NewMCPServer(
 		"prometheus-mcp-server",
 		version.Info(),
@@ -214,6 +210,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
 		server.WithToolHandlerMiddleware(docsLoaderToolMW),
+		server.WithToolHandlerMiddleware(telemetryToolMW),
 		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
 		server.WithResourceHandlerMiddleware(docsLoaderResourceMW),
 		server.WithResourceCapabilities(false, true),
