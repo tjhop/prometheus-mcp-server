@@ -11,6 +11,9 @@ OPENWEBUI_VERSION ?= v0.6.15
 help: ## print this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-z0-9A-Z_-]+:.*?##/ { printf "  \033[36m%-30s\033[0m%s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
+submodules: ## ensure git submodules are initialized and updated
+	git submodule update --init --remote --recursive
+
 tidy: ## tidy modules
 	${GOMOD} tidy
 
@@ -22,7 +25,7 @@ lint: ## run linters
 	# convert this to use golangic-lint from devbox, rather than podman
 	podman run --rm -v ${CURDIR}:/app -v ${GOLANGCILINT_CACHE}:/root/.cache -w /app docker.io/golangci/golangci-lint:latest golangci-lint run -v
 
-binary: fmt tidy lint ## build a binary
+binary: submodules fmt tidy lint ## build a binary
 	goreleaser build --clean --single-target --snapshot --output .
 
 build: binary ## alias for `binary`
