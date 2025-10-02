@@ -31,6 +31,7 @@ binary: submodules fmt tidy lint ## build a binary
 build: binary ## alias for `binary`
 
 build-all: ## test release process with goreleaser, does not publish/upload
+	docker run --privileged --rm tonistiigi/binfmt --install all
 	goreleaser release --snapshot --clean
 
 test: fmt tidy ## run tests
