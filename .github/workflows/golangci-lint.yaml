@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
       - name: golangci-lint
