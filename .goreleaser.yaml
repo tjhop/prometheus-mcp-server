@@ -18,49 +18,26 @@ builds:
     main: './cmd/prometheus-mcp-server'
 gomod:
   proxy: false
-dockers:
-  # build amd64 container image
-  - image_templates:
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
-    goos: linux
-    goarch: amd64
-    use: buildx
-    build_flag_templates:
-    - "--pull"
-    - "--label=org.opencontainers.image.created={{.Date}}"
-    - "--label=org.opencontainers.image.title={{.ProjectName}}"
-    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source=https://github.com/tjhop/prometheus-mcp-server"
-    - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
-    - "--label=org.opencontainers.image.licenses=Apache-2.0"
-    - "--platform=linux/amd64"
-  # build arm64 container image
-  - image_templates:
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
-    goos: linux
-    goarch: arm64
-    use: buildx
-    build_flag_templates:
-    - "--pull"
-    - "--label=org.opencontainers.image.created={{.Date}}"
-    - "--label=org.opencontainers.image.title={{.ProjectName}}"
-    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source=https://github.com/tjhop/prometheus-mcp-server"
-    - "--label=org.opencontainers.image.description='Prometheus MCP Server'"
-    - "--label=org.opencontainers.image.licenses=Apache-2.0"
-    - "--platform=linux/arm64"
-docker_manifests:
-  # manifest for multi-arch builds
-  - name_template: "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}"
-    image_templates:
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
-  - name_template: "ghcr.io/tjhop/{{.ProjectName}}:latest"
-    image_templates:
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-amd64"
-      - "ghcr.io/tjhop/{{.ProjectName}}:{{ .Tag }}-arm64"
+dockers_v2:
+  - images:
+      - "ghcr.io/tjhop/{{.ProjectName}}"
+    tags:
+      - "{{.Version}}"
+      - "v{{.Version}}"
+      - "latest"
+    labels:
+      "org.opencontainers.image.description": "Prometheus MCP Server"
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+      "org.opencontainers.image.licenses": "Apache-2.0"
+      "io.modelcontextprotocol.server.name": "io.github.com/tjhop/{{.ProjectName}}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
