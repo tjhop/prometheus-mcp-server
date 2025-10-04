@@ -125,8 +125,6 @@ func TestQueryToolHandler(t *testing.T) {
 			mockAPI.QueryFunc = tc.mockQueryFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -258,8 +256,6 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			mockAPI.QueryRangeFunc = tc.mockQueryFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -328,8 +324,6 @@ func TestSnapshotToolHandler(t *testing.T) {
 			mockAPI.SnapshotFunc = tc.mockSnapshotFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -446,8 +440,6 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			mockAPI.DeleteSeriesFunc = tc.mockDeleteSeriesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -512,8 +504,6 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 			mockAPI.CleanTombstonesFunc = tc.mockCleanTombstonesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -600,8 +590,6 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 			mockAPI.MetadataFunc = tc.mockMetadataFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -690,8 +678,6 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 			mockAPI.TargetsMetadataFunc = tc.mockTargetsMetadataFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -756,8 +742,6 @@ func TestListTargetsToolHandler(t *testing.T) {
 			mockAPI.TargetsFunc = tc.mockTargetsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -822,8 +806,6 @@ func TestListRulesToolHandler(t *testing.T) {
 			mockAPI.RulesFunc = tc.mockRulesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -888,8 +870,6 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 			mockAPI.RuntimeinfoFunc = tc.mockRuntimeinfoFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -954,8 +934,6 @@ func TestConfigToolHandler(t *testing.T) {
 			mockAPI.ConfigFunc = tc.mockConfigFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1020,8 +998,6 @@ func TestBuildinfoToolHandler(t *testing.T) {
 			mockAPI.BuildinfoFunc = tc.mockBuildinfoFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1086,8 +1062,6 @@ func TestFlagsToolHandler(t *testing.T) {
 			mockAPI.FlagsFunc = tc.mockFlagsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1152,8 +1126,6 @@ func TestListAlertsToolHandler(t *testing.T) {
 			mockAPI.AlertsFunc = tc.mockAlertsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1270,8 +1242,6 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			mockAPI.LabelValuesFunc = tc.mockLabelValuesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1388,8 +1358,6 @@ func TestSeriesToolHandler(t *testing.T) {
 			mockAPI.SeriesFunc = tc.mockSeriesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
