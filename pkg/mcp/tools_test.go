@@ -112,7 +112,7 @@ func TestQueryToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(queryTool, queryToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -125,8 +125,6 @@ func TestQueryToolHandler(t *testing.T) {
 			mockAPI.QueryFunc = tc.mockQueryFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -245,7 +243,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(rangeQueryTool, rangeQueryToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -258,8 +256,6 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			mockAPI.QueryRangeFunc = tc.mockQueryFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -315,7 +311,7 @@ func TestSnapshotToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(snapshotTool, snapshotToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -328,8 +324,6 @@ func TestSnapshotToolHandler(t *testing.T) {
 			mockAPI.SnapshotFunc = tc.mockSnapshotFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -433,7 +427,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(deleteSeriesTool, deleteSeriesToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -446,8 +440,6 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			mockAPI.DeleteSeriesFunc = tc.mockDeleteSeriesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -499,7 +491,7 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(cleanTombstonesTool, cleanTombstonesToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -512,8 +504,6 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 			mockAPI.CleanTombstonesFunc = tc.mockCleanTombstonesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -587,7 +577,7 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(metricMetadataTool, metricMetadataToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -600,8 +590,6 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 			mockAPI.MetadataFunc = tc.mockMetadataFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -677,7 +665,7 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(targetsMetadataTool, targetsMetadataToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -690,8 +678,6 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 			mockAPI.TargetsMetadataFunc = tc.mockTargetsMetadataFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -743,7 +729,7 @@ func TestListTargetsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(targetsTool, targetsToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -756,8 +742,6 @@ func TestListTargetsToolHandler(t *testing.T) {
 			mockAPI.TargetsFunc = tc.mockTargetsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -809,7 +793,7 @@ func TestListRulesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(rulesTool, rulesToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -822,8 +806,6 @@ func TestListRulesToolHandler(t *testing.T) {
 			mockAPI.RulesFunc = tc.mockRulesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -875,7 +857,7 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(runtimeinfoTool, runtimeinfoToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -888,8 +870,6 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 			mockAPI.RuntimeinfoFunc = tc.mockRuntimeinfoFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -941,7 +921,7 @@ func TestConfigToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(configTool, configToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -954,8 +934,6 @@ func TestConfigToolHandler(t *testing.T) {
 			mockAPI.ConfigFunc = tc.mockConfigFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1007,7 +985,7 @@ func TestBuildinfoToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(buildinfoTool, buildinfoToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1020,8 +998,6 @@ func TestBuildinfoToolHandler(t *testing.T) {
 			mockAPI.BuildinfoFunc = tc.mockBuildinfoFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1073,7 +1049,7 @@ func TestFlagsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(flagsTool, flagsToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1086,8 +1062,6 @@ func TestFlagsToolHandler(t *testing.T) {
 			mockAPI.FlagsFunc = tc.mockFlagsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1139,7 +1113,7 @@ func TestListAlertsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(listAlertsTool, listAlertsToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1152,8 +1126,6 @@ func TestListAlertsToolHandler(t *testing.T) {
 			mockAPI.AlertsFunc = tc.mockAlertsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1257,7 +1229,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(labelValuesTool, labelValuesToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1270,8 +1242,6 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			mockAPI.LabelValuesFunc = tc.mockLabelValuesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
@@ -1375,7 +1345,7 @@ func TestSeriesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(seriesTool, seriesToolHandler)
 
-	ctx := context.WithValue(context.Background(), apiClientKey{}, mockAPI)
+	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1388,8 +1358,6 @@ func TestSeriesToolHandler(t *testing.T) {
 			mockAPI.SeriesFunc = tc.mockSeriesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
-			require.NoError(t, err)
-
 			tc.validateResult(t, res, err)
 		})
 	}
