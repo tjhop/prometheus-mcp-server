@@ -95,7 +95,13 @@ Download a release appropriate for your system from the [Releases](https://githu
 ### Docker
 
 ```shell
-docker run -it --rm ghcr.io/tjhop/prometheus-mcp-server <flags>
+# Stdio transport
+docker run --rm -i ghcr.io/tjhop/prometheus-mcp-server:latest --prometheus.url "https://$yourPrometheus:9090" 
+```
+
+```shell
+# Streamable HTTP transport (capable of SSE as well)
+docker run --rm -p 8080:8080 ghcr.io/tjhop/prometheus-mcp-server:latest --prometheus.url "https://$yourPrometheus:9090" --mcp.transport "http" --web.listen-address ":8080"
 ```
 
 ### System Packages
