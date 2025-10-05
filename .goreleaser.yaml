@@ -34,7 +34,7 @@ dockers_v2:
       "org.opencontainers.image.version": "{{.Version}}"
       "org.opencontainers.image.source": "{{.GitURL}}"
       "org.opencontainers.image.licenses": "Apache-2.0"
-      "io.modelcontextprotocol.server.name": "io.github.com/tjhop/{{.ProjectName}}"
+      "io.modelcontextprotocol.server.name": "io.github.tjhop/{{.ProjectName}}"
     platforms:
       - linux/amd64
       - linux/arm64
