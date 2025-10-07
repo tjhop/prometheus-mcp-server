@@ -3,7 +3,6 @@
   "packages": [
     "uv@latest",
     "go@latest",
-    "podman@latest",
     "golangci-lint@latest",
     "goreleaser@latest",
     "nodejs@22"

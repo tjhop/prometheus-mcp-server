@@ -128,7 +128,7 @@ See [`mcp.json`](./examples/mcp.json) for an example MCP config for use with too
 Requires [`ollama`](https://github.com/ollama/ollama) to be installed.
 
 _NOTE:_ 
-> To override the default LLM (`ollama:qwen2.5-coder:3b`), run `export
+> To override the default LLM (`ollama:gpt-oss:20b`), run `export
 > OLLAMA_MODEL="ollama:your_model"` to override it before running `make` .
 
 <details>
@@ -166,7 +166,7 @@ make gemini
 ### Manual Setup
 Required software:
 - Working Go environment
-- Podman for local tests/linting/etc
+- Docker for local tests/linting/image building/etc
 - GNU Make
 - [ollama](https://github.com/ollama/ollama)
 - [mcp inspector](https://github.com/modelcontextprotocol/inspector)
@@ -184,17 +184,16 @@ Usage:
 
 Targets:
   help                           print this help message
+  submodules                     ensure git submodules are initialized and updated
   tidy                           tidy modules
   fmt                            apply go code style formatter
   lint                           run linters
   binary                         build a binary
   build                          alias for `binary`
   build-all                      test release process with goreleaser, does not publish/upload
+  container                      build container images with goreleaser, alias for `build-all`
+  image                          build container images with goreleaser, alias for `build-all`
   test                           run tests
-  container                      build container image with binary
-  image                          alias for `container`
-  podman                         alias for `container`
-  docker                         alias for `container`
   mcphost                        use mcphost to run the prometheus-mcp-server against a local ollama model
   inspector                      use inspector to run the prometheus-mcp-server in STDIO transport mode
   inspector-http                 use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
