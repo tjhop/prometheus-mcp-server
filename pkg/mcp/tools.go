@@ -9,15 +9,62 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 
 	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
 var (
-	// Tools.
+	// Tool Groupings.
+
+	// CoreTools is the list of tools that are always loaded.
+	CoreTools = []string{
+		"docs_list",
+		"docs_read",
+		"query",
+		"range_query",
+		"metric_metadata",
+		"label_names",
+		"label_values",
+		"series",
+	}
+
+	PrometheusTsdbAdminTools = []string{
+		"clean_tombstones",
+		"delete_series",
+		"snapshot",
+	}
+
+	prometheusToolset = map[string]server.ServerTool{
+		"alertmanagers":     {Tool: prometheusAlertmanagersTool, Handler: prometheusAlertmanagersToolHandler},
+		"build_info":        {Tool: prometheusBuildinfoTool, Handler: prometheusBuildinfoToolHandler},
+		"clean_tombstones":  {Tool: prometheusCleanTombstonesTool, Handler: prometheusCleanTombstonesToolHandler},
+		"config":            {Tool: prometheusConfigTool, Handler: prometheusConfigToolHandler},
+		"delete_series":     {Tool: prometheusDeleteSeriesTool, Handler: prometheusDeleteSeriesToolHandler},
+		"docs_list":         {Tool: prometheusDocsListTool, Handler: prometheusDocsListToolHandler},
+		"docs_read":         {Tool: prometheusDocsReadTool, Handler: prometheusDocsReadToolHandler},
+		"exemplar_query":    {Tool: prometheusExemplarQueryTool, Handler: prometheusExemplarQueryToolHandler},
+		"flags":             {Tool: prometheusFlagsTool, Handler: prometheusFlagsToolHandler},
+		"label_names":       {Tool: prometheusLabelNamesTool, Handler: prometheusLabelNamesToolHandler},
+		"label_values":      {Tool: prometheusLabelValuesTool, Handler: prometheusLabelValuesToolHandler},
+		"list_alerts":       {Tool: prometheusListAlertsTool, Handler: prometheusListAlertsToolHandler},
+		"list_rules":        {Tool: prometheusRulesTool, Handler: prometheusRulesToolHandler},
+		"metric_metadata":   {Tool: prometheusMetricMetadataTool, Handler: prometheusMetricMetadataToolHandler},
+		"query":             {Tool: prometheusQueryTool, Handler: prometheusQueryToolHandler},
+		"range_query":       {Tool: prometheusRangeQueryTool, Handler: prometheusRangeQueryToolHandler},
+		"runtime_info":      {Tool: prometheusRuntimeinfoTool, Handler: prometheusRuntimeinfoToolHandler},
+		"series":            {Tool: prometheusSeriesTool, Handler: prometheusSeriesToolHandler},
+		"snapshot":          {Tool: prometheusSnapshotTool, Handler: prometheusSnapshotToolHandler},
+		"targets_metadata":  {Tool: prometheusTargetsMetadataTool, Handler: prometheusTargetsMetadataToolHandler},
+		"list_targets":      {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
+		"tsdb_stats":        {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
+		"wal_replay_status": {Tool: prometheusWalReplayTool, Handler: prometheusWalReplayToolHandler},
+	}
+
+	// Tools Definitions.
 
 	// Tools for Prometheus API.
-	queryTool = mcp.NewTool("query",
+	prometheusQueryTool = mcp.NewTool("query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -28,7 +75,7 @@ var (
 		),
 	)
 
-	rangeQueryTool = mcp.NewTool("range_query",
+	prometheusRangeQueryTool = mcp.NewTool("range_query",
 		mcp.WithDescription("Execute a range query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -48,7 +95,7 @@ var (
 		),
 	)
 
-	exemplarQueryTool = mcp.NewTool("exemplar_query",
+	prometheusExemplarQueryTool = mcp.NewTool("exemplar_query",
 		mcp.WithDescription("Execute a exemplar query against the Prometheus datasource"),
 		mcp.WithString("query",
 			mcp.Required(),
@@ -64,7 +111,7 @@ var (
 		),
 	)
 
-	seriesTool = mcp.NewTool("series",
+	prometheusSeriesTool = mcp.NewTool("series",
 		mcp.WithDescription("Finds series by label matches"),
 		mcp.WithArray("matches",
 			mcp.Required(),
@@ -80,7 +127,7 @@ var (
 		),
 	)
 
-	labelNamesTool = mcp.NewTool("label_names",
+	prometheusLabelNamesTool = mcp.NewTool("label_names",
 		mcp.WithDescription("Returns the unique label names present in the block in sorted order by given time range and matches"),
 		mcp.WithArray("matches",
 			mcp.Description("[Optional] Label matches"),
@@ -95,7 +142,7 @@ var (
 		),
 	)
 
-	labelValuesTool = mcp.NewTool("label_values",
+	prometheusLabelValuesTool = mcp.NewTool("label_values",
 		mcp.WithDescription("Performs a query for the values of the given label, time range and matches"),
 		mcp.WithString("label",
 			mcp.Required(),
@@ -114,43 +161,43 @@ var (
 		),
 	)
 
-	tsdbStatsTool = mcp.NewTool("tsdb_stats",
+	prometheusTsdbStatsTool = mcp.NewTool("tsdb_stats",
 		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
 	)
 
-	listAlertsTool = mcp.NewTool("list_alerts",
+	prometheusListAlertsTool = mcp.NewTool("list_alerts",
 		mcp.WithDescription("List all active alerts"),
 	)
 
-	alertmanagersTool = mcp.NewTool("alertmanagers",
+	prometheusAlertmanagersTool = mcp.NewTool("alertmanagers",
 		mcp.WithDescription("Get overview of Prometheus Alertmanager discovery"),
 	)
 
-	flagsTool = mcp.NewTool("flags",
+	prometheusFlagsTool = mcp.NewTool("flags",
 		mcp.WithDescription("Get runtime flags"),
 	)
 
-	buildinfoTool = mcp.NewTool("build_info",
+	prometheusBuildinfoTool = mcp.NewTool("build_info",
 		mcp.WithDescription("Get Prometheus build information"),
 	)
 
-	configTool = mcp.NewTool("config",
+	prometheusConfigTool = mcp.NewTool("config",
 		mcp.WithDescription("Get Prometheus configuration"),
 	)
 
-	runtimeinfoTool = mcp.NewTool("runtime_info",
+	prometheusRuntimeinfoTool = mcp.NewTool("runtime_info",
 		mcp.WithDescription("Get Prometheus runtime information"),
 	)
 
-	rulesTool = mcp.NewTool("list_rules",
+	prometheusRulesTool = mcp.NewTool("list_rules",
 		mcp.WithDescription("List all alerting and recording rules that are loaded"),
 	)
 
-	targetsTool = mcp.NewTool("list_targets",
+	prometheusTargetsTool = mcp.NewTool("list_targets",
 		mcp.WithDescription("Get overview of Prometheus target discovery"),
 	)
 
-	targetsMetadataTool = mcp.NewTool("targets_metadata",
+	prometheusTargetsMetadataTool = mcp.NewTool("targets_metadata",
 		mcp.WithDescription("Returns metadata about metrics currently scraped by the target "),
 		mcp.WithString("match_target",
 			mcp.Description("[Optional] Label selectors that match targets by their label sets. All targets are selected if left empty."),
@@ -163,7 +210,7 @@ var (
 		),
 	)
 
-	metricMetadataTool = mcp.NewTool("metric_metadata",
+	prometheusMetricMetadataTool = mcp.NewTool("metric_metadata",
 		mcp.WithDescription("Returns metadata about metrics currently scraped by the metric name."),
 		mcp.WithString("metric",
 			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
@@ -173,16 +220,16 @@ var (
 		),
 	)
 
-	walReplayTool = mcp.NewTool("wal_replay_status",
+	prometheusWalReplayTool = mcp.NewTool("wal_replay_status",
 		mcp.WithDescription("Get current WAL replay status"),
 	)
 
 	// Tools for Prometheus TSDB admin APIs.
-	cleanTombstonesTool = mcp.NewTool("clean_tombstones",
+	prometheusCleanTombstonesTool = mcp.NewTool("clean_tombstones",
 		mcp.WithDescription("Removes the deleted data from disk and cleans up the existing tombstones"),
 	)
 
-	deleteSeriesTool = mcp.NewTool("delete_series",
+	prometheusDeleteSeriesTool = mcp.NewTool("delete_series",
 		mcp.WithDescription("Deletes data for a selection of series in a time range"),
 		mcp.WithArray("matches",
 			mcp.Required(),
@@ -198,7 +245,7 @@ var (
 		),
 	)
 
-	snapshotTool = mcp.NewTool("snapshot",
+	prometheusSnapshotTool = mcp.NewTool("snapshot",
 		mcp.WithDescription("creates a snapshot of all current data into snapshots/<datetime>-<rand>"+
 			" under the TSDB's data directory and returns the directory as response."),
 		mcp.WithBoolean("skip_head",
@@ -207,11 +254,11 @@ var (
 	)
 
 	// Tools for Prometheus documentation.
-	docsListTool = mcp.NewTool("docs_list",
+	prometheusDocsListTool = mcp.NewTool("docs_list",
 		mcp.WithDescription("List of Official Prometheus Documentation Files."),
 	)
 
-	docsReadTool = mcp.NewTool("docs_read",
+	prometheusDocsReadTool = mcp.NewTool("docs_read",
 		mcp.WithDescription("Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo"),
 		mcp.WithString("file",
 			mcp.Required(),
@@ -232,7 +279,7 @@ func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) st
 	return out.String()
 }
 
-func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
 		return mcp.NewToolResultError("query must be a string"), nil
@@ -256,7 +303,7 @@ func queryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(data), nil
 }
 
-func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusRangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
 		return mcp.NewToolResultError("query must be a string"), nil
@@ -306,7 +353,7 @@ func rangeQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(data), nil
 }
 
-func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusExemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query, err := request.RequireString("query")
 	if err != nil {
 		return mcp.NewToolResultError("query must be a string"), nil
@@ -342,7 +389,7 @@ func exemplarQueryToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 	return mcp.NewToolResultText(data), nil
 }
 
-func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusSeriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matches, err := request.RequireStringSlice("matches")
 	if err != nil {
 		return mcp.NewToolResultError("matches must be an array"), nil
@@ -378,7 +425,7 @@ func seriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	return mcp.NewToolResultText(data), nil
 }
 
-func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusLabelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matches := request.GetStringSlice("matches", []string{})
 	endTs := time.Time{}
 	startTs := time.Time{}
@@ -410,7 +457,7 @@ func labelNamesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(data), nil
 }
 
-func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	label, err := request.RequireString("label")
 	if err != nil {
 		return mcp.NewToolResultError("label must be a string"), nil
@@ -447,7 +494,7 @@ func labelValuesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	return mcp.NewToolResultText(data), nil
 }
 
-func listAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusListAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := listAlertsApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -455,7 +502,7 @@ func listAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(data), nil
 }
 
-func alertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusAlertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := alertmanagersApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -463,7 +510,7 @@ func alertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 	return mcp.NewToolResultText(data), nil
 }
 
-func tsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusTsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := tsdbStatsApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -471,7 +518,7 @@ func tsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	return mcp.NewToolResultText(data), nil
 }
 
-func flagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusFlagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := flagsApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -479,7 +526,7 @@ func flagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(data), nil
 }
 
-func buildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusBuildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := buildinfoApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -487,7 +534,7 @@ func buildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	return mcp.NewToolResultText(data), nil
 }
 
-func configToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusConfigToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := configApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -495,7 +542,7 @@ func configToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	return mcp.NewToolResultText(data), nil
 }
 
-func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusRuntimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := runtimeinfoApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -503,7 +550,7 @@ func runtimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	return mcp.NewToolResultText(data), nil
 }
 
-func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusRulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := rulesApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -511,7 +558,7 @@ func rulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	return mcp.NewToolResultText(data), nil
 }
 
-func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusTargetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := targetsApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -519,7 +566,7 @@ func targetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 	return mcp.NewToolResultText(data), nil
 }
 
-func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusTargetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matchTarget := request.GetString("match_target", "")
 	metric := request.GetString("metric", "")
 	limit := request.GetString("limit", "")
@@ -532,7 +579,7 @@ func targetsMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest
 }
 
 // // Metadata returns metadata about metrics currently scraped by the metric name.
-func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusMetricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	metric := request.GetString("metric", "")
 	limit := request.GetString("limit", "")
 
@@ -543,7 +590,7 @@ func metricMetadataToolHandler(ctx context.Context, request mcp.CallToolRequest)
 	return mcp.NewToolResultText(data), nil
 }
 
-func walReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusWalReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := walReplayApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -551,7 +598,7 @@ func walReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	return mcp.NewToolResultText(data), nil
 }
 
-func cleanTombstonesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusCleanTombstonesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := cleanTombstonesApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -559,7 +606,7 @@ func cleanTombstonesToolHandler(ctx context.Context, request mcp.CallToolRequest
 	return mcp.NewToolResultText(data), nil
 }
 
-func deleteSeriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusDeleteSeriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	matches, err := request.RequireStringSlice("matches")
 	if err != nil {
 		return mcp.NewToolResultError("matches must be an array"), nil
@@ -595,7 +642,7 @@ func deleteSeriesToolHandler(ctx context.Context, request mcp.CallToolRequest) (
 	return mcp.NewToolResultText(data), nil
 }
 
-func snapshotToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusSnapshotToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	skipHead := request.GetBool("skip_head", false)
 
 	data, err := snapshotApiCall(ctx, skipHead)
@@ -605,7 +652,7 @@ func snapshotToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	return mcp.NewToolResultText(data), nil
 }
 
-func docsListToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusDocsListToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var resourceReadReq mcp.ReadResourceRequest
 	resourceReadReq.Params.URI = resourcePrefix + "docs"
 
@@ -619,7 +666,7 @@ func docsListToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
 }
 
-func docsReadToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func prometheusDocsReadToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	f := request.GetString("file", "")
 
 	var resourceReadReq mcp.ReadResourceRequest

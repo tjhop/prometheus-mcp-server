@@ -110,7 +110,7 @@ func TestQueryToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(queryTool, queryToolHandler)
+	mockServer.AddTool(prometheusQueryTool, prometheusQueryToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -241,7 +241,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(rangeQueryTool, rangeQueryToolHandler)
+	mockServer.AddTool(prometheusRangeQueryTool, prometheusRangeQueryToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -309,7 +309,7 @@ func TestSnapshotToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(snapshotTool, snapshotToolHandler)
+	mockServer.AddTool(prometheusSnapshotTool, prometheusSnapshotToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -425,7 +425,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(deleteSeriesTool, deleteSeriesToolHandler)
+	mockServer.AddTool(prometheusDeleteSeriesTool, prometheusDeleteSeriesToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -489,7 +489,7 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(cleanTombstonesTool, cleanTombstonesToolHandler)
+	mockServer.AddTool(prometheusCleanTombstonesTool, prometheusCleanTombstonesToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -575,7 +575,7 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(metricMetadataTool, metricMetadataToolHandler)
+	mockServer.AddTool(prometheusMetricMetadataTool, prometheusMetricMetadataToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -663,7 +663,7 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(targetsMetadataTool, targetsMetadataToolHandler)
+	mockServer.AddTool(prometheusTargetsMetadataTool, prometheusTargetsMetadataToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -727,7 +727,7 @@ func TestListTargetsToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(targetsTool, targetsToolHandler)
+	mockServer.AddTool(prometheusTargetsTool, prometheusTargetsToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -791,7 +791,7 @@ func TestListRulesToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(rulesTool, rulesToolHandler)
+	mockServer.AddTool(prometheusRulesTool, prometheusRulesToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -855,7 +855,7 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(runtimeinfoTool, runtimeinfoToolHandler)
+	mockServer.AddTool(prometheusRuntimeinfoTool, prometheusRuntimeinfoToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -919,7 +919,7 @@ func TestConfigToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(configTool, configToolHandler)
+	mockServer.AddTool(prometheusConfigTool, prometheusConfigToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -983,7 +983,7 @@ func TestBuildinfoToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(buildinfoTool, buildinfoToolHandler)
+	mockServer.AddTool(prometheusBuildinfoTool, prometheusBuildinfoToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -1047,7 +1047,7 @@ func TestFlagsToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(flagsTool, flagsToolHandler)
+	mockServer.AddTool(prometheusFlagsTool, prometheusFlagsToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -1111,7 +1111,7 @@ func TestListAlertsToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(listAlertsTool, listAlertsToolHandler)
+	mockServer.AddTool(prometheusListAlertsTool, prometheusListAlertsToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -1227,7 +1227,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(labelValuesTool, labelValuesToolHandler)
+	mockServer.AddTool(prometheusLabelValuesTool, prometheusLabelValuesToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)
@@ -1343,7 +1343,7 @@ func TestSeriesToolHandler(t *testing.T) {
 
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
-	mockServer.AddTool(seriesTool, seriesToolHandler)
+	mockServer.AddTool(prometheusSeriesTool, prometheusSeriesToolHandler)
 
 	ctx := addApiClientToContext(context.Background(), mockAPI)
 	err := mockServer.Start(ctx)

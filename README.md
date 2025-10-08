@@ -24,6 +24,8 @@ Here is a screen recording using Google Gemini models to report on the health of
 
 ### Tools
 
+#### Full Tool List
+
 | Tool Name | Description |
 | --- | --- |
 | `alertmanagers` | Get overview of Prometheus Alertmanager discovery |
@@ -59,6 +61,34 @@ __NOTE:__
 | `clean_tombstones` | Removes the deleted data from disk and cleans up the existing tombstones |
 | `delete_series` | deletes data for a selection of series in a time range |
 | `snapshot` | creates a snapshot of all current data into snapshots/<datetime>-<rand> under the TSDB's data directory and returns the directory as response |
+
+#### Tool Sets
+
+The server exposes many tools to interact with Prometheus. There are tools to interact with Prometheus via the API, as well as additional tools to do things like read documentation, etc.
+By default, they are all registered and available for use (TSDB Admin API tools need an extra flag).
+
+To be considerate to LLMs with smaller context windows, it's possible to pass in a whitelist of specific tools to register with the server.
+The following 'core' tools are always loaded: `[docs_list, docs_read, query, range_query, metric_metadata, label_names, label_values, series]`
+
+For example, the command line:
+
+```shell
+prometheus-mcp-server --mcp.tools=build_info --mcp.tools=flags --mcp.tools=runtime_info
+```
+
+Would result in the following tools being loaded:
+
+- `docs_list`
+- `docs_read`
+- `query`
+- `range_query`
+- `metric_metadata`
+- `label_names`
+- `label_values`
+- `series`
+- `build_info`
+- `flags`
+- `runtime_info`
 
 ### Resources
 
