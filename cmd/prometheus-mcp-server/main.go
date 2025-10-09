@@ -41,6 +41,16 @@ var (
 	assetsDocs embed.FS
 	docsFs     fs.FS
 
+	flagMcpTools = kingpin.Flag(
+		"mcp.tools",
+		"List of mcp tools to load."+
+			" The target `all` can be used to load all tools."+
+			" The target `core` loads only the core tools:"+
+			" [`docs_list`, `docs_read`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`]"+
+			" Otherwise, it is treated as an allow-list of tools to load, in addition to the core tools."+
+			" Please see project README for more information and the full list of tools.",
+	).Default("all").Strings()
+
 	flagPrometheusUrl = kingpin.Flag(
 		"prometheus.url",
 		"URL of the Prometheus instance to connect to",
@@ -127,7 +137,7 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(ctx, logger, client, *flagEnableTsdbAdminTools, docsFs)
+	mcpServer := mcp.NewServer(ctx, logger, client, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
 	srv := setupServer(logger)
 
 	var g run.Group
@@ -314,7 +324,7 @@ func getRoundTripperFromConfig(httpConfig string) (http.RoundTripper, error) {
 			return nil, fmt.Errorf("failed to validate HTTP configuration file %s: %w", httpConfig, err)
 		}
 
-		httpClient, err = config_util.NewClientFromConfig(*httpCfg, "prometheus-mcp-server")
+		httpClient, err = config_util.NewClientFromConfig(*httpCfg, programName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create HTTP client from configuration file %s: %w", httpConfig, err)
 		}

@@ -24,6 +24,8 @@ Here is a screen recording using Google Gemini models to report on the health of
 
 ### Tools
 
+#### Full Tool List
+
 | Tool Name | Description |
 | --- | --- |
 | `alertmanagers` | Get overview of Prometheus Alertmanager discovery |
@@ -59,6 +61,35 @@ __NOTE:__
 | `clean_tombstones` | Removes the deleted data from disk and cleans up the existing tombstones |
 | `delete_series` | deletes data for a selection of series in a time range |
 | `snapshot` | creates a snapshot of all current data into snapshots/<datetime>-<rand> under the TSDB's data directory and returns the directory as response |
+
+#### Tool Sets
+
+The server exposes many tools to interact with Prometheus. There are tools to interact with Prometheus via the API, as well as additional tools to do things like read documentation, etc.
+By default, they are all registered and available for use (TSDB Admin API tools need an extra flag).
+
+To be considerate to LLMs with smaller context windows, it's possible to pass in a whitelist of specific tools to register with the server.
+The following 'core' tools are always loaded: `[docs_list, docs_read, query, range_query, metric_metadata, label_names, label_values, series]`.
+Additional tools can be specified with the [`--mcp.tools` flag](#command-line-flags).
+
+For example, the command line:
+
+```shell
+prometheus-mcp-server --mcp.tools=build_info --mcp.tools=flags --mcp.tools=runtime_info
+```
+
+Would result in the following tools being loaded:
+
+- `build_info`
+- `docs_list`
+- `docs_read`
+- `flags`
+- `label_names`
+- `label_values`
+- `metric_metadata`
+- `query`
+- `range_query`
+- `runtime_info`
+- `series`
 
 ### Resources
 
@@ -116,6 +147,35 @@ systemctl enable --now prometheus-mcp-server.service
 ```
 
 _Note_: While packages are built for several systems, there are currently no plans to attempt to submit packages to upstream package repositories.
+
+## Telemetry
+### Metrics
+
+Once running, the server exposes Prometheus metrics on the configured listen address and telemetry path (`:8080/metrics`, by default).
+Please see [Flags](#command-line-flags) for more information on how to change the listening interface, port, or telemetry path.
+
+<details>
+<summary>Prometheus MCP Server Metrics</summary>
+
+| Metric name | Type | Description | Labels |
+| --- | --- | --- | --- |
+| `prom_mcp_build_info` | `Gauge` | A metric with a constant '1' value with labels for version, commit and build_date from which prometheus-mcp-server was built. | `version`, `commit`, `build_date`, `goversion` |
+| `prom_mcp_server_ready` | `Gauge` | Info metric with a static '1' if the MCP server is ready, and '0' otherwise. | |
+| `prom_mcp_api_calls_failed_total` | `Counter` | Total number of Prometheus API failures, per endpoint. | `target_path` |
+| `prom_mcp_api_call_duration_seconds` | `Histogram` | Duration of Prometheus API calls, per endpoint, in seconds. | `target_path` |
+| `prom_mcp_tool_calls_failed_total` | `Counter` | Total number of failures per tool. | `tool_name` |
+| `prom_mcp_tool_call_duration_seconds` | `Histogram` | Duration of tool calls, per tool, in seconds. | `tool_name` |
+| `prom_mcp_resource_calls_failed_total` | `Counter` | Total number of failures per resource. | `resource_uri` |
+| `prom_mcp_resource_call_duration_seconds` | `Histogram` | Duration of resource calls, per resource, in seconds. | `resource_uri` |
+| `go_*` | `Gauge`/`Counter` | Standard Go runtime metrics from the `client_golang` library. | |
+| `process_*` | `Gauge`/`Counter` | Standard process metrics from the `client_golang` library. | |
+
+</details>
+
+### Logs
+
+This project makes heavy use of structured, leveled logging.
+Please see [Flags](#command-line-flags) for more information on how to set the log format, level, and optional file.
 
 ## Development
 ### Development Environment with Devbox + Direnv
@@ -211,6 +271,9 @@ usage: prometheus-mcp-server [<flags>]
 
 Flags:
   -h, --[no-]help                Show context-sensitive help (also try --help-long and --help-man).
+      --mcp.tools=all ...        List of mcp tools to load. The target `all` can be used to load all tools. The target `core` loads only the core tools: [`docs_list`,
+                                 `docs_read`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`] Otherwise, it is treated as an allow-list
+                                 of tools to load, in addition to the core tools. Please see project README for more information and the full list of tools.
       --prometheus.url="http://127.0.0.1:9090"  
                                  URL of the Prometheus instance to connect to
       --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -212,7 +213,7 @@ func (m *telemetryMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc
 	}
 }
 
-func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, docs fs.FS) *server.MCPServer {
+func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, enabledTools []string, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -272,40 +273,54 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 	// https://github.com/mark3labs/mcp-go/pull/582
 	mcpServer.AddResourceTemplate(docsReadResourceTemplate, server.ResourceTemplateHandlerFunc(docsLoaderResourceMW(docsReadResourceTemplateHandler)))
 
-	// Add tools.
-	mcpServer.AddTool(alertmanagersTool, alertmanagersToolHandler)
-	mcpServer.AddTool(buildinfoTool, buildinfoToolHandler)
-	mcpServer.AddTool(configTool, configToolHandler)
-	mcpServer.AddTool(exemplarQueryTool, exemplarQueryToolHandler)
-	mcpServer.AddTool(flagsTool, flagsToolHandler)
-	mcpServer.AddTool(labelNamesTool, labelNamesToolHandler)
-	mcpServer.AddTool(labelValuesTool, labelValuesToolHandler)
-	mcpServer.AddTool(listAlertsTool, listAlertsToolHandler)
-	mcpServer.AddTool(metricMetadataTool, metricMetadataToolHandler)
-	mcpServer.AddTool(queryTool, queryToolHandler)
-	mcpServer.AddTool(rangeQueryTool, rangeQueryToolHandler)
-	mcpServer.AddTool(rulesTool, rulesToolHandler)
-	mcpServer.AddTool(runtimeinfoTool, runtimeinfoToolHandler)
-	mcpServer.AddTool(seriesTool, seriesToolHandler)
-	mcpServer.AddTool(targetsMetadataTool, targetsMetadataToolHandler)
-	mcpServer.AddTool(targetsTool, targetsToolHandler)
-	mcpServer.AddTool(tsdbStatsTool, tsdbStatsToolHandler)
-	mcpServer.AddTool(walReplayTool, walReplayToolHandler)
-	mcpServer.AddTool(docsListTool, docsListToolHandler)
-	mcpServer.AddTool(docsReadTool, docsReadToolHandler)
+	// Assemble the set of tools to register with the server.
+	var toolset []server.ServerTool
 
-	// if enabled at cli by flag, allow using the TSDB admin APIs
-	if enableTsdbAdminTools {
-		logger.Warn(
-			"TSDB Admin APIs have been enabled!" +
-				" This is dangerous, and allows for destructive operations like deleting data." +
-				" It is not the fault of this MCP server if the LLM you're connected to nukes all your data.",
-		)
+	switch {
+	case len(enabledTools) == 1 && enabledTools[0] == "all":
+		for _, tool := range prometheusToolset {
+			toolset = append(toolset, tool)
+		}
+	case len(enabledTools) == 1 && enabledTools[0] == "core":
+		for _, toolName := range CoreTools {
+			toolset = append(toolset, prometheusToolset[toolName])
+		}
+	default:
+		// Always include core tools.
+		enabledTools = append(enabledTools, CoreTools...)
+		slices.Sort(enabledTools)
+		enabledTools = slices.Compact(enabledTools)
 
-		mcpServer.AddTool(cleanTombstonesTool, cleanTombstonesToolHandler)
-		mcpServer.AddTool(deleteSeriesTool, deleteSeriesToolHandler)
-		mcpServer.AddTool(snapshotTool, snapshotToolHandler)
+		for _, toolName := range enabledTools {
+			val, ok := prometheusToolset[toolName]
+			if !ok {
+				logger.Warn("Failed to find tool to register", "tool_name", toolName)
+				continue
+			}
+
+			// If it's a TSDB admin tool, check if we're allowed to
+			// run them.
+			if slices.Contains(PrometheusTsdbAdminTools, toolName) {
+				if !enableTsdbAdminTools {
+					logger.Error("Failed to add TSDB admin tool to toolset",
+						"err", errors.New("TSDB admin tools must be enabled with `--dangerous.enable-tsdb-admin-tools` flag"),
+						"tool_name", toolName,
+					)
+					continue
+				}
+
+				logger.Warn("Adding TSDB admin tool to toolset for registration", "tool_name", toolName)
+				toolset = append(toolset, val)
+				continue
+			}
+
+			logger.Debug("Adding tool to toolset for registration", "tool_name", toolName)
+			toolset = append(toolset, val)
+		}
 	}
+
+	// Add tools.
+	mcpServer.AddTools(toolset...)
 
 	return mcpServer
 }
