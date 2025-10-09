@@ -148,6 +148,35 @@ systemctl enable --now prometheus-mcp-server.service
 
 _Note_: While packages are built for several systems, there are currently no plans to attempt to submit packages to upstream package repositories.
 
+## Telemetry
+### Metrics
+
+Once running, the server exposes Prometheus metrics on the configured listen address and telemetry path (`:8080/metrics`, by default).
+Please see [Flags](#command-line-flags) for more information on how to change the listening interface, port, or telemetry path.
+
+<details>
+<summary>Prometheus MCP Server Metrics</summary>
+
+| Metric name | Type | Description | Labels |
+| --- | --- | --- | --- |
+| `prom_mcp_build_info` | `Gauge` | A metric with a constant '1' value with labels for version, commit and build_date from which prometheus-mcp-server was built. | `version`, `commit`, `build_date`, `goversion` |
+| `prom_mcp_server_ready` | `Gauge` | Info metric with a static '1' if the MCP server is ready, and '0' otherwise. | |
+| `prom_mcp_api_calls_failed_total` | `Counter` | Total number of Prometheus API failures, per endpoint. | `target_path` |
+| `prom_mcp_api_call_duration_seconds` | `Histogram` | Duration of Prometheus API calls, per endpoint, in seconds. | `target_path` |
+| `prom_mcp_tool_calls_failed_total` | `Counter` | Total number of failures per tool. | `tool_name` |
+| `prom_mcp_tool_call_duration_seconds` | `Histogram` | Duration of tool calls, per tool, in seconds. | `tool_name` |
+| `prom_mcp_resource_calls_failed_total` | `Counter` | Total number of failures per resource. | `resource_uri` |
+| `prom_mcp_resource_call_duration_seconds` | `Histogram` | Duration of resource calls, per resource, in seconds. | `resource_uri` |
+| `go_*` | `Gauge`/`Counter` | Standard Go runtime metrics from the `client_golang` library. | |
+| `process_*` | `Gauge`/`Counter` | Standard process metrics from the `client_golang` library. | |
+
+</details>
+
+### Logs
+
+This project makes heavy use of structured, leveled logging.
+Please see [Flags](#command-line-flags) for more information on how to set the log format, level, and optional file.
+
 ## Development
 ### Development Environment with Devbox + Direnv
 If you use [Devbox](https://www.jetify.com/devbox) and
