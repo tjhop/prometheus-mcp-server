@@ -68,7 +68,8 @@ The server exposes many tools to interact with Prometheus. There are tools to in
 By default, they are all registered and available for use (TSDB Admin API tools need an extra flag).
 
 To be considerate to LLMs with smaller context windows, it's possible to pass in a whitelist of specific tools to register with the server.
-The following 'core' tools are always loaded: `[docs_list, docs_read, query, range_query, metric_metadata, label_names, label_values, series]`
+The following 'core' tools are always loaded: `[docs_list, docs_read, query, range_query, metric_metadata, label_names, label_values, series]`.
+Additional tools can be specified with the [`--mcp.tools` flag](#command-line-flags).
 
 For example, the command line:
 
@@ -78,17 +79,17 @@ prometheus-mcp-server --mcp.tools=build_info --mcp.tools=flags --mcp.tools=runti
 
 Would result in the following tools being loaded:
 
+- `build_info`
 - `docs_list`
 - `docs_read`
-- `query`
-- `range_query`
-- `metric_metadata`
+- `flags`
 - `label_names`
 - `label_values`
-- `series`
-- `build_info`
-- `flags`
+- `metric_metadata`
+- `query`
+- `range_query`
 - `runtime_info`
+- `series`
 
 ### Resources
 
