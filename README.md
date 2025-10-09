@@ -242,6 +242,9 @@ usage: prometheus-mcp-server [<flags>]
 
 Flags:
   -h, --[no-]help                Show context-sensitive help (also try --help-long and --help-man).
+      --mcp.tools=all ...        List of mcp tools to load. The target `all` can be used to load all tools. The target `core` loads only the core tools: [`docs_list`,
+                                 `docs_read`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`] Otherwise, it is treated as an allow-list
+                                 of tools to load, in addition to the core tools. Please see project README for more information and the full list of tools.
       --prometheus.url="http://127.0.0.1:9090"  
                                  URL of the Prometheus instance to connect to
       --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options
