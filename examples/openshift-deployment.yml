@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-mcp-server
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-mcp-server
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-mcp-server
+    namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-mcp-server
+  namespace: default
+  labels:
+    app: prometheus-mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-mcp-server
+  template:
+    metadata:
+      labels:
+        app: prometheus-mcp-server
+    spec:
+      serviceAccountName: prometheus-mcp-server
+      containers:
+      - name: prometheus-mcp-server
+        image: ghcr.io/tjhop/prometheus-mcp-server:latest
+        args: 
+          - '--prometheus.url=https://thanos-querier.openshift-monitoring.svc:9091'
+          - '--http.config=/etc/configs/prom-config.yaml'
+          - '--mcp.transport=http'
+          - '--web.listen-address=:8080'
+          - '--web.config.file=/etc/configs/web-config.yaml'
+          - '--log.level=info'
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+            - mountPath: /etc/configs
+              name: configs
+            - mountPath: /var/certs
+              name: certs
+      volumes:
+        - name: configs
+          configMap:
+            name: prometheus-mcp-server
+        - name: certs
+          secret:
+            secretName: prometheus-mcp-server-tls
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: prometheus-mcp-server
+  namespace: default
+  labels:
+    app: prometheus-mcp-server
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: prometheus-mcp-server-tls
+spec:
+  selector:
+    app: prometheus-mcp-server
+  ports:
+    - port: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-mcp-server
+  namespace: default
+  labels:
+    app: prometheus-mcp-server
+data:
+  prom-config.yaml: |
+    # Prometheus HTTP config file
+    # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
+
+    # Use the service account token for authentication
+    # else remove this section and set `Authorization` header when querying the mcp endpoint
+    authorization:
+      type: Bearer
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+    # Use the service account CA for TLS verification
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+  web-config.yaml: |
+    # HTTP server config file
+    # https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
+
+    tls_server_config:
+      cert_file: /var/certs/tls.crt
+      key_file: /var/certs/tls.key
