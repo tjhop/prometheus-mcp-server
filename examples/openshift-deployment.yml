@@ -90,6 +90,7 @@ data:
     # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
 
     # Use the service account token for authentication
+    # else remove this section and set `Authorization` header when querying the mcp endpoint
     authorization:
       type: Bearer
       credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
