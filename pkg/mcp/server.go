@@ -118,10 +118,11 @@ func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
 // with the credentials from the header, otherwise return the
 // default client.
 func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
-	if header != nil && header.Get("Authorization") != "" {
+	authorization := header.Get("Authorization")
+	if header != nil && authorization != "" {
 		var authType, secret string
-		if strings.Contains(header.Get("Authorization"), " ") {
-			authTypeCredentials := strings.Split(header.Get("Authorization"), " ")
+		if strings.Contains(authorization, " ") {
+			authTypeCredentials := strings.Split(authorization, " ")
 			if len(authTypeCredentials) != 2 {
 				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "X-Request-ID", header.Get("X-Request-ID"))
 				return m.defaultClient
@@ -131,7 +132,7 @@ func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
 		} else {
 			m.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified", "X-Request-ID", header.Get("X-Request-ID"))
 			authType = "Bearer"
-			secret = header.Get("Authorization")
+			secret = authorization
 		}
 		rt := config.NewAuthorizationCredentialsRoundTripper(authType, config.NewInlineSecret(secret), m.roundTripper)
 		client, err := NewAPIClient(m.prometheusUrl, rt)
