@@ -123,13 +123,13 @@ func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
 		if strings.Contains(header.Get("Authorization"), " ") {
 			authTypeCredentials := strings.Split(header.Get("Authorization"), " ")
 			if len(authTypeCredentials) != 2 {
-				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "header", header.Get("Authorization"))
+				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "X-Request-ID", header.Get("X-Request-ID"))
 				return m.defaultClient
 			}
 			authType = authTypeCredentials[0]
 			secret = authTypeCredentials[1]
 		} else {
-			m.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified", "header", header.Get("Authorization"))
+			m.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified", "X-Request-ID", header.Get("X-Request-ID"))
 			authType = "Bearer"
 			secret = header.Get("Authorization")
 		}
