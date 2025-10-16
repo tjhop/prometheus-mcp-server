@@ -96,7 +96,7 @@ type apiClientLoaderMiddleware struct {
 func newApiClientLoaderMiddleware(url string, rt http.RoundTripper, log *slog.Logger) (*apiClientLoaderMiddleware, error) {
 	c, err := NewAPIClient(url, rt)
 	if err != nil {
-		return nil, err
+		return &apiClientLoaderMiddleware{}, err
 	}
 	return &apiClientLoaderMiddleware{prometheusUrl: url, roundTripper: rt, defaultClient: c, logger: log}, nil
 }
