@@ -124,10 +124,6 @@ func main() {
 
 	ctx, rootCtxCancel := context.WithCancel(context.Background())
 	defer rootCtxCancel()
-	client, err := mcp.NewAPIClient(*flagPrometheusUrl, rt)
-	if err != nil {
-		logger.Error("Failed to create Prometheus client for MCP server", "err", err)
-	}
 
 	// Setup static file server for embedded prometheus docs.
 	docs, err := fs.Sub(assetsDocs, "external/docs/docs")
@@ -137,7 +133,7 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(ctx, logger, client, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
+	mcpServer := mcp.NewServer(ctx, logger, *flagPrometheusUrl, rt, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
 	srv := setupServer(logger)
 
 	var g run.Group

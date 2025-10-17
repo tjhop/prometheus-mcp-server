@@ -6,12 +6,16 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
+	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/config"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
@@ -83,11 +87,18 @@ func init() {
 // global/external state to maintain the API client otherwise.
 type apiClientKey struct{}
 type apiClientLoaderMiddleware struct {
-	client promv1.API
+	prometheusUrl string
+	roundTripper  http.RoundTripper
+	defaultClient promv1.API
+	logger        *slog.Logger
 }
 
-func newApiClientLoaderMiddleware(c promv1.API) *apiClientLoaderMiddleware {
-	return &apiClientLoaderMiddleware{client: c}
+func newApiClientLoaderMiddleware(url string, rt http.RoundTripper, log *slog.Logger) (*apiClientLoaderMiddleware, error) {
+	c, err := NewAPIClient(url, rt)
+	if err != nil {
+		return &apiClientLoaderMiddleware{}, err
+	}
+	return &apiClientLoaderMiddleware{prometheusUrl: url, roundTripper: rt, defaultClient: c, logger: log}, nil
 }
 
 func addApiClientToContext(ctx context.Context, c promv1.API) context.Context {
@@ -103,15 +114,46 @@ func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
 	return client, nil
 }
 
+// If there's an Authorization header, create a new RoundTripper
+// with the credentials from the header, otherwise return the
+// default client.
+func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
+	authorization := header.Get("Authorization")
+	if header != nil && authorization != "" {
+		var authType, secret string
+		if strings.Contains(authorization, " ") {
+			authTypeCredentials := strings.Split(authorization, " ")
+			if len(authTypeCredentials) != 2 {
+				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "X-Request-ID", header.Get("X-Request-ID"))
+				return m.defaultClient
+			}
+			authType = authTypeCredentials[0]
+			secret = authTypeCredentials[1]
+		} else {
+			m.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified", "X-Request-ID", header.Get("X-Request-ID"))
+			authType = "Bearer"
+			secret = authorization
+		}
+		rt := config.NewAuthorizationCredentialsRoundTripper(authType, config.NewInlineSecret(secret), m.roundTripper)
+		client, err := NewAPIClient(m.prometheusUrl, rt)
+		if err != nil {
+			m.logger.Error("Failed to create Prometheus client with credentials from request header", "err", err)
+			return m.defaultClient
+		}
+		return client
+	}
+	return m.defaultClient
+}
+
 func (m *apiClientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return next(addApiClientToContext(ctx, m.client), req)
+		return next(addApiClientToContext(ctx, m.getClient(req.Header)), req)
 	}
 }
 
 func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
-	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return next(addApiClientToContext(ctx, m.client), request)
+	return func(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return next(addApiClientToContext(ctx, m.getClient(req.Header)), req)
 	}
 }
 
@@ -213,7 +255,7 @@ func (m *telemetryMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc
 	}
 }
 
-func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, enableTsdbAdminTools bool, enabledTools []string, docs fs.FS) *server.MCPServer {
+func NewServer(ctx context.Context, logger *slog.Logger, promUrl string, promRt http.RoundTripper, enableTsdbAdminTools bool, enabledTools []string, docs fs.FS) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -230,7 +272,10 @@ func NewServer(ctx context.Context, logger *slog.Logger, apiClient promv1.API, e
 	// TODO: allow users to specify additional instructions/context?
 
 	// Add middlewares.
-	apiClientLoaderMW := newApiClientLoaderMiddleware(apiClient)
+	apiClientLoaderMW, err := newApiClientLoaderMiddleware(promUrl, promRt, logger)
+	if err != nil {
+		logger.Error("Failed to create default Prometheus client for MCP server", "err", err)
+	}
 	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
 	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
