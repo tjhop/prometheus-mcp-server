@@ -2,17 +2,11 @@ package mcp
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"io/fs"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-)
-
-var (
-	//go:embed assets/*
-	assets embed.FS
 )
 
 // Context key and middlewares for embedding Prometheus' docs as an fs.FS into

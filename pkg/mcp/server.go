@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -22,6 +23,8 @@ import (
 )
 
 var (
+	//go:embed assets/*
+	assets embed.FS
 	instrx string
 
 	metricServerReady = prometheus.NewGauge(
