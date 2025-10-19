@@ -15,6 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcptest"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -249,7 +250,7 @@ func TestDocsListResourceHandler(t *testing.T) {
 	testCases := []struct {
 		name           string
 		request        mcp.ReadResourceRequest
-		mockDocsFS     fs.FS
+		mockDocsFS     *docsLoaderMiddleware
 		validateResult func(t *testing.T, res *mcp.ReadResourceResult, err error)
 	}{
 		{
@@ -259,7 +260,7 @@ func TestDocsListResourceHandler(t *testing.T) {
 					URI: resourcePrefix + "docs",
 				},
 			},
-			mockDocsFS: createMockDocsFS(),
+			mockDocsFS: newDocsLoaderMiddleware(promslog.New(&promslog.Config{}), createMockDocsFS()),
 			validateResult: func(t *testing.T, res *mcp.ReadResourceResult, err error) {
 				require.NoError(t, err)
 				require.Len(t, res.Contents, 1)
@@ -275,7 +276,7 @@ func TestDocsListResourceHandler(t *testing.T) {
 		},
 		{
 			name:       "Empty Filesystem",
-			mockDocsFS: fstest.MapFS{},
+			mockDocsFS: newDocsLoaderMiddleware(promslog.New(&promslog.Config{}), fstest.MapFS{}),
 			validateResult: func(t *testing.T, res *mcp.ReadResourceResult, err error) {
 				require.Error(t, err)
 			},
@@ -305,7 +306,7 @@ func TestDocsReadResourceTemplateHandler(t *testing.T) {
 	testCases := []struct {
 		name           string
 		request        mcp.ReadResourceRequest
-		mockDocsFS     fs.FS
+		mockDocsFS     *docsLoaderMiddleware
 		validateResult func(t *testing.T, res *mcp.ReadResourceResult, err error)
 	}{
 		{
@@ -315,7 +316,7 @@ func TestDocsReadResourceTemplateHandler(t *testing.T) {
 					URI: resourcePrefix + "docs/doc1.md",
 				},
 			},
-			mockDocsFS: createMockDocsFS(),
+			mockDocsFS: newDocsLoaderMiddleware(promslog.New(&promslog.Config{}), createMockDocsFS()),
 			validateResult: func(t *testing.T, res *mcp.ReadResourceResult, err error) {
 				require.NoError(t, err)
 				require.Len(t, res.Contents, 1)
@@ -329,7 +330,7 @@ func TestDocsReadResourceTemplateHandler(t *testing.T) {
 					URI: resourcePrefix + "docs/non_existent_file.md",
 				},
 			},
-			mockDocsFS: createMockDocsFS(),
+			mockDocsFS: newDocsLoaderMiddleware(promslog.New(&promslog.Config{}), createMockDocsFS()),
 			validateResult: func(t *testing.T, res *mcp.ReadResourceResult, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "file does not exist")

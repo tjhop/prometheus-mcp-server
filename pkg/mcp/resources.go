@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"strings"
 	"time"
 
@@ -103,18 +101,9 @@ func docsListResourceHandler(ctx context.Context, request mcp.ReadResourceReques
 		return nil, fmt.Errorf("failed to get docs: %w", err)
 	}
 
-	var names []string
-	err = fs.WalkDir(docs, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			names = append(names, path)
-		}
-		return nil
-	})
+	names, err := getDocFileNames(docs.fsys)
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk docs directory: %w", err)
+		return nil, fmt.Errorf("failed to list docs: %w", err)
 	}
 
 	return []mcp.ResourceContents{
@@ -143,13 +132,7 @@ func docsReadResourceTemplateHandler(ctx context.Context, request mcp.ReadResour
 
 	var resourceContents []mcp.ResourceContents
 	for _, fname := range filenames {
-		f, err := docs.Open(fname)
-		if err != nil {
-			return nil, fmt.Errorf("error opening file from docs: %w", err)
-		}
-		defer f.Close()
-
-		content, err := io.ReadAll(f)
+		content, err := getDocFileContent(docs.fsys, fname)
 		if err != nil {
 			return nil, fmt.Errorf("error reading file from docs: %w", err)
 		}
@@ -157,7 +140,7 @@ func docsReadResourceTemplateHandler(ctx context.Context, request mcp.ReadResour
 		resourceContents = append(resourceContents, mcp.TextResourceContents{
 			URI:      request.Params.URI,
 			MIMEType: "text/markdown",
-			Text:     string(content), // TODO: @tjhop: strip markdown frontmatter?
+			Text:     content, // TODO: @tjhop: strip markdown frontmatter?
 		})
 	}
 

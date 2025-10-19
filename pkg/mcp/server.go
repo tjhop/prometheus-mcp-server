@@ -237,7 +237,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, promUrl string, promRt 
 	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
 	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
-	docsLoaderMW := newDocsLoaderMiddleware(docs)
+	docsLoaderMW := newDocsLoaderMiddleware(logger, docs)
 	docsLoaderToolMW := docsLoaderMW.ToolMiddleware
 	docsLoaderResourceMW := docsLoaderMW.ResourceMiddleware
 
