@@ -24,7 +24,7 @@ lint: ## run linters
 	# convert this to use golangic-lint from devbox, rather than docker
 	docker run --rm -v ${CURDIR}:/app -v ${GOLANGCILINT_CACHE}:/root/.cache -w /app docker.io/golangci/golangci-lint:latest golangci-lint run -v
 
-binary: submodules fmt tidy lint ## build a binary
+binary: submodules fmt tidy lint test ## build a binary
 	goreleaser build --clean --single-target --snapshot --output .
 
 build: binary ## alias for `binary`
