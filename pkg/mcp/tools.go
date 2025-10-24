@@ -676,7 +676,13 @@ func prometheusDocsListToolHandler(ctx context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
+	toolRes := mcp.NewToolResultText("Documentation files found")
+
+	for _, content := range res {
+		toolRes.Content = append(toolRes.Content, mcp.NewEmbeddedResource(content))
+	}
+
+	return toolRes, nil
 }
 
 func prometheusDocsReadToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -696,7 +702,13 @@ func prometheusDocsReadToolHandler(ctx context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
+	toolRes := mcp.NewToolResultText("File content for documentation file: " + f)
+
+	for _, content := range res {
+		toolRes.Content = append(toolRes.Content, mcp.NewEmbeddedResource(content))
+	}
+
+	return toolRes, nil
 }
 
 func prometheusDocsSearchToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -729,7 +741,7 @@ func prometheusDocsSearchToolHandler(ctx context.Context, request mcp.CallToolRe
 		matchingDocsFiles = append(matchingDocsFiles, name)
 	}
 
-	toolRes := mcp.NewToolResultText(fmt.Sprintf("Docs search found matches in the following docs files: %q", matchingDocsFiles))
+	toolRes := mcp.NewToolResultText(fmt.Sprintf("Docs search found matches in the following documentation files: %q", matchingDocsFiles))
 
 	var resourceReadReq mcp.ReadResourceRequest
 	args := make(map[string]any)
