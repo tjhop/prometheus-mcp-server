@@ -46,7 +46,7 @@ var (
 		"List of mcp tools to load."+
 			" The target `all` can be used to load all tools."+
 			" The target `core` loads only the core tools:"+
-			" [`docs_list`, `docs_read`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`]"+
+			" [`docs_list`, `docs_read`, `docs_search`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`]"+
 			" Otherwise, it is treated as an allow-list of tools to load, in addition to the core tools."+
 			" Please see project README for more information and the full list of tools.",
 	).Default("all").Strings()
