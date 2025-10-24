@@ -33,6 +33,7 @@ Here is a screen recording using Google Gemini models to report on the health of
 | `config` | Get Prometheus configuration |
 | `docs_list` | List of Official Prometheus Documentation Files |
 | `docs_read` | Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo |
+| `docs_search` | Search the markdown files containing official Prometheus documentation from the prometheus/docs repo |
 | `exemplars_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
@@ -68,7 +69,7 @@ The server exposes many tools to interact with Prometheus. There are tools to in
 By default, they are all registered and available for use (TSDB Admin API tools need an extra flag).
 
 To be considerate to LLMs with smaller context windows, it's possible to pass in a whitelist of specific tools to register with the server.
-The following 'core' tools are always loaded: `[docs_list, docs_read, query, range_query, metric_metadata, label_names, label_values, series]`.
+The following 'core' tools are always loaded: `[docs_list, docs_read, docs_search, query, range_query, metric_metadata, label_names, label_values, series]`.
 Additional tools can be specified with the [`--mcp.tools` flag](#command-line-flags).
 
 For example, the command line:
@@ -82,6 +83,7 @@ Would result in the following tools being loaded:
 - `build_info`
 - `docs_list`
 - `docs_read`
+- `docs_search`
 - `flags`
 - `label_names`
 - `label_values`

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/blevesearch/bleve/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/tmc/langchaingo/textsplitter"
@@ -77,23 +78,29 @@ func getDocFileContent(fsys fs.FS, path string) (string, error) {
 }
 
 const (
-	docChunkSize    = 8 * 1024
-	docChunkOverlap = 1 * 1024
+	docChunkSize           = 8 * 1024
+	docChunkOverlap        = 1 * 1024
+	defaultDocsSearchLimit = 25
 )
 
 type chunk struct {
-	id      int
-	name    string
-	content string
+	Id      int
+	Name    string
+	Content string
+}
+
+func (c *chunk) ID() string {
+	return fmt.Sprintf("%s#%d", c.Name, c.Id)
 }
 
 type docsLoaderMiddleware struct {
-	logger    *slog.Logger
-	fsys      fs.FS
-	chunkInfo []chunk
+	logger      *slog.Logger
+	fsys        fs.FS
+	chunkInfo   []chunk
+	searchIndex bleve.Index
 }
 
-// newDocsLoaderMiddleware uses the provided FS to split the file into chunks
+// newDocsLoaderMiddleware uses the provided FS to split the files into chunks
 // and cache them for future indexing/searching.
 func newDocsLoaderMiddleware(logger *slog.Logger, fsys fs.FS) *docsLoaderMiddleware {
 	chunkInfo := make([]chunk, 0)
@@ -119,6 +126,15 @@ func newDocsLoaderMiddleware(logger *slog.Logger, fsys fs.FS) *docsLoaderMiddlew
 		return &docsMW
 	}
 
+	bleve.SetLog(slog.NewLogLogger(logger.Handler(), slog.LevelDebug))
+	mapping := bleve.NewIndexMapping()
+	searchIndex, err := bleve.NewMemOnly(mapping)
+	if err != nil {
+		logger.Error("Failed to make in-memory search index for docs", "err", err)
+		return &docsMW
+	}
+
+	// Read, chunk, and index files for docs search.
 	for _, fn := range docFiles {
 		content, err := getDocFileContent(docsMW.fsys, fn)
 		if err != nil {
@@ -133,15 +149,23 @@ func newDocsLoaderMiddleware(logger *slog.Logger, fsys fs.FS) *docsLoaderMiddlew
 		}
 
 		for i, c := range chunks {
-			chunkInfo = append(chunkInfo, chunk{
-				id:      i,
-				name:    fn,
-				content: c,
-			})
+			newChunk := chunk{
+				Id:      i + 1,
+				Name:    fn,
+				Content: c,
+			}
+
+			chunkInfo = append(chunkInfo, newChunk)
+			newChunkID := newChunk.ID()
+			if err := searchIndex.Index(newChunkID, newChunk); err != nil {
+				logger.Error("Failed to index chunk", "err", err, "chunk_id", newChunkID)
+				continue
+			}
 		}
 	}
 
 	docsMW.chunkInfo = chunkInfo
+	docsMW.searchIndex = searchIndex
 	return &docsMW
 }
 
@@ -155,4 +179,38 @@ func (m *docsLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFun
 	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 		return next(addDocsToContext(ctx, m), request)
 	}
+}
+
+// searchDocs takes a query and does analytical fuzzy matching against the
+// index, and it returns a slice of chunk IDs that matched the query. The
+// caller can determine how to proceed with the information/matches.
+func (m *docsLoaderMiddleware) searchDocs(q string, limit int) ([]string, error) {
+	var res []string
+	if limit < 1 {
+		limit = defaultDocsSearchLimit
+	}
+
+	query := bleve.NewMatchQuery(q)
+	query.Fuzziness = 1
+
+	req := bleve.NewSearchRequest(query)
+	req.Size = limit
+	req.Highlight = bleve.NewHighlight()
+	req.Fields = []string{"*"}
+
+	searchRes, err := m.searchIndex.Search(req)
+	if err != nil {
+		return res, fmt.Errorf("error searching index: %w", err)
+	}
+
+	hits := searchRes.Hits
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+
+	for _, hit := range hits {
+		res = append(res, hit.ID)
+	}
+
+	return res, nil
 }
