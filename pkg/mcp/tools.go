@@ -21,6 +21,7 @@ var (
 	CoreTools = []string{
 		"docs_list",
 		"docs_read",
+		"docs_search",
 		"query",
 		"range_query",
 		"metric_metadata",
@@ -43,6 +44,7 @@ var (
 		"delete_series":     {Tool: prometheusDeleteSeriesTool, Handler: prometheusDeleteSeriesToolHandler},
 		"docs_list":         {Tool: prometheusDocsListTool, Handler: prometheusDocsListToolHandler},
 		"docs_read":         {Tool: prometheusDocsReadTool, Handler: prometheusDocsReadToolHandler},
+		"docs_search":       {Tool: prometheusDocsSearchTool, Handler: prometheusDocsSearchToolHandler},
 		"exemplar_query":    {Tool: prometheusExemplarQueryTool, Handler: prometheusExemplarQueryToolHandler},
 		"flags":             {Tool: prometheusFlagsTool, Handler: prometheusFlagsToolHandler},
 		"label_names":       {Tool: prometheusLabelNamesTool, Handler: prometheusLabelNamesToolHandler},
@@ -263,6 +265,17 @@ var (
 		mcp.WithString("file",
 			mcp.Required(),
 			mcp.Description("The name of the documentation file to read"),
+		),
+	)
+
+	prometheusDocsSearchTool = mcp.NewTool("docs_search",
+		mcp.WithDescription("Search the markdown files containing official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description("The query to search for"),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("The maximum number of search results to return"),
 		),
 	)
 )
@@ -684,4 +697,56 @@ func prometheusDocsReadToolHandler(ctx context.Context, request mcp.CallToolRequ
 	}
 
 	return mcp.NewToolResultText(getTextResourceContentsAsString(res)), nil
+}
+
+func prometheusDocsSearchToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	limit := request.GetInt("limit", 10)
+	query := request.GetString("query", "")
+	if query == "" {
+		return mcp.NewToolResultError("docs search query cannot be empty"), nil
+	}
+
+	docs, err := getDocsFsFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get docs: %w", err)
+	}
+
+	matchingChunkIds, err := docs.searchDocs(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed searching for matching docs files: %w", err)
+	}
+
+	if len(matchingChunkIds) == 0 {
+		return mcp.NewToolResultError("no results found for search query: " + query), nil
+	}
+
+	matchingDocsFiles := []string{}
+	docsFilesSeen := make(map[string]struct{})
+	for _, chunkId := range matchingChunkIds {
+		parts := strings.Split(chunkId, "#")
+		name := parts[0]
+		docsFilesSeen[name] = struct{}{}
+		matchingDocsFiles = append(matchingDocsFiles, name)
+	}
+
+	toolRes := mcp.NewToolResultText(fmt.Sprintf("Docs search found matches in the following docs files: %q", matchingDocsFiles))
+
+	var resourceReadReq mcp.ReadResourceRequest
+	args := make(map[string]any)
+	for _, file := range matchingDocsFiles {
+		resourceReadReq.Params.URI = resourcePrefix + path.Join("docs", file)
+		args["file"] = []string{file}
+		resourceReadReq.Params.Arguments = args
+
+		res, err := docsReadResourceTemplateHandler(ctx, resourceReadReq)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		for _, content := range res {
+			toolRes.Content = append(toolRes.Content, mcp.NewEmbeddedResource(content))
+		}
+	}
+
+	return toolRes, nil
 }
