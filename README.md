@@ -120,21 +120,32 @@ Please check the documentation for the tool being used/integrated for specific i
 
 ### Binary
 Download a release appropriate for your system from the [Releases](https://github.com/tjhop/prometheus-mcp-server/releases) page.
+Please see [Flags](#command-line-flags) for more information on the available flags and their corresponding environment variables.
 
 ```shell
 /path/to/prometheus-mcp-server <flags>
+
+# or using env vars
+PROMETHEUS_MCP_SERVER_PROMETHEUS_URL="https://$yourPrometheus:9090" /path/to/prometheus-mcp-server
 ```
 
 ### Docker
+Please see [Flags](#command-line-flags) for more information on the available flags and their corresponding environment variables.
 
 ```shell
 # Stdio transport
 docker run --rm -i ghcr.io/tjhop/prometheus-mcp-server:latest --prometheus.url "https://$yourPrometheus:9090" 
+
+# or using env vars
+docker run --rm -i -e PROMETHEUS_MCP_SERVER_PROMETHEUS_URL="https://$yourPrometheus:9090" ghcr.io/tjhop/prometheus-mcp-server:latest
 ```
 
 ```shell
 # Streamable HTTP transport (capable of SSE as well)
 docker run --rm -p 8080:8080 ghcr.io/tjhop/prometheus-mcp-server:latest --prometheus.url "https://$yourPrometheus:9090" --mcp.transport "http" --web.listen-address ":8080"
+
+# or using env vars
+docker run --rm -p 8080:8080 -e PROMETHEUS_MCP_SERVER_PROMETHEUS_URL="https://$yourPrometheus:9090" -e PROMETHEUS_MCP_SERVER_MCP_TRANSPORT="http" -e PROMETHEUS_MCP_SERVER_WEB_LISTEN_ADDRESS=":8080" ghcr.io/tjhop/prometheus-mcp-server:latest
 ```
 
 ### System Packages
@@ -143,7 +154,7 @@ Download a release appropriate for your system from the [Releases](https://githu
 ```shell
 # install system package (example assuming Debian based)
 apt install /path/to/package
-# create unit override, add any needed flags
+# create unit override, add any needed flags or environment variables
 systemctl edit prometheus-mcp-server.service
 systemctl enable --now prometheus-mcp-server.service
 ```
@@ -272,31 +283,29 @@ usage: prometheus-mcp-server [<flags>]
 
 
 Flags:
-  -h, --[no-]help                Show context-sensitive help (also try --help-long and --help-man).
-      --mcp.tools=all ...        List of mcp tools to load. The target `all` can be used to load all tools. The target `core` loads only the core tools: [`docs_list`,
-                                 `docs_read`, `query`, `range_query`, `metric_metadata`, `label_names`, `label_values`, `series`] Otherwise, it is treated as an allow-list
-                                 of tools to load, in addition to the core tools. Please see project README for more information and the full list of tools.
-      --prometheus.url="http://127.0.0.1:9090"  
-                                 URL of the Prometheus instance to connect to
-      --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options
-      --web.telemetry-path="/metrics"  
-                                 Path under which to expose metrics.
-      --web.max-requests=40      Maximum number of parallel scrape requests. Use 0 to disable.
-      --[no-]dangerous.enable-tsdb-admin-tools  
-                                 Enable and allow using tools that access Prometheus' TSDB Admin API endpoints (`snapshot`, `delete_series`, and `clean_tombstones` tools).
-                                 This is dangerous, and allows for destructive operations like deleting data. It is not the fault of this MCP server if the LLM you're
-                                 connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
-      --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate)
-      --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`].
-      --[no-]web.systemd-socket  Use systemd socket activation listeners instead of port listeners (Linux only).
-      --web.listen-address=:8080 ...  
-                                 Addresses on which to expose metrics and web interface. Repeatable for multiple addresses. Examples: `:9100` or `[::1]:9100` for http,
-                                 `vsock://:9100` for vsock
-      --web.config.file=""       Path to configuration file that can enable TLS or authentication. See:
-                                 https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
-      --log.level=info           Only log messages with the given severity or above. One of: [debug, info, warn, error]
-      --log.format=logfmt        Output format of log messages. One of: [logfmt, json]
-      --[no-]version             Show application version.
-
+  -h, --[no-]help                Show context-sensitive help (also try --help-long and --help-man). ($PROMETHEUS_MCP_SERVER_HELP)
+      --mcp.tools=all ...        List of mcp tools to load. The target `all` can be used to load all tools. The target `core` loads only the core tools: [`docs_list`, `docs_read`, `docs_search`, `query`, `range_query`,
+                                 `metric_metadata`, `label_names`, `label_values`, `series`] Otherwise, it is treated as an allow-list of tools to load, in addition to the core tools. Please see project README for more information
+                                 and the full list of tools. ($PROMETHEUS_MCP_SERVER_MCP_TOOLS)
+      --prometheus.url="http://127.0.0.1:9090"
+                                 URL of the Prometheus instance to connect to ($PROMETHEUS_MCP_SERVER_PROMETHEUS_URL)
+      --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options ($PROMETHEUS_MCP_SERVER_HTTP_CONFIG)
+      --web.telemetry-path="/metrics"
+                                 Path under which to expose metrics. ($PROMETHEUS_MCP_SERVER_WEB_TELEMETRY_PATH)
+      --web.max-requests=40      Maximum number of parallel scrape requests. Use 0 to disable. ($PROMETHEUS_MCP_SERVER_WEB_MAX_REQUESTS)
+      --[no-]dangerous.enable-tsdb-admin-tools
+                                 Enable and allow using tools that access Prometheus' TSDB Admin API endpoints (`snapshot`, `delete_series`, and `clean_tombstones` tools). This is dangerous, and allows for destructive operations
+                                 like deleting data. It is not the fault of this MCP server if the LLM you're connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
+                                 ($PROMETHEUS_MCP_SERVER_DANGEROUS_ENABLE_TSDB_ADMIN_TOOLS)
+      --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate) ($PROMETHEUS_MCP_SERVER_LOG_FILE)
+      --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`]. ($PROMETHEUS_MCP_SERVER_MCP_TRANSPORT)
+      --[no-]web.systemd-socket  Use systemd socket activation listeners instead of port listeners (Linux only). ($PROMETHEUS_MCP_SERVER_WEB_SYSTEMD_SOCKET)
+      --web.listen-address=:8080 ...
+                                 Addresses on which to expose metrics and web interface. Repeatable for multiple addresses. Examples: `:9100` or `[::1]:9100` for http, `vsock://:9100` for vsock
+                                 ($PROMETHEUS_MCP_SERVER_WEB_LISTEN_ADDRESS)
+      --web.config.file=""       Path to configuration file that can enable TLS or authentication. See: https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md ($PROMETHEUS_MCP_SERVER_WEB_CONFIG_FILE)
+      --log.level=info           Only log messages with the given severity or above. One of: [debug, info, warn, error] ($PROMETHEUS_MCP_SERVER_LOG_LEVEL)
+      --log.format=logfmt        Output format of log messages. One of: [logfmt, json] ($PROMETHEUS_MCP_SERVER_LOG_FORMAT)
+      --[no-]version             Show application version. ($PROMETHEUS_MCP_SERVER_VERSION)
 ```
 

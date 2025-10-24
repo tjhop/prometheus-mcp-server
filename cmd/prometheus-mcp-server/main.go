@@ -99,6 +99,7 @@ func main() {
 	kingpin.Version(version.Print(programName))
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	kingpin.HelpFlag.Short('h')
+	kingpin.CommandLine.DefaultEnvars()
 	kingpin.Parse()
 
 	if *flagLogToFile != "" {
