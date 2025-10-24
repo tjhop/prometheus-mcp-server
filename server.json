@@ -17,6 +17,15 @@
       "transport": {
         "type": "stdio"
       },
+      "environmentVariables": [
+        {
+          "name": "PROMETHEUS_MCP_SERVER_PROMETHEUS_URL",
+          "description": "URL of the Prometheus instance to connect to (default: \"http://127.0.0.1:9090\")",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false
+        }
+      ],
       "runtimeArguments": [
         {
           "type": "positional",
@@ -34,19 +43,21 @@
           "description": "Automatically remove the container when it exits"
         },
         {
+          "type": "named",
+          "name": "-e",
+          "description": "Set an environment variable in the runtime"
+        },
+        {
+          "type": "positional",
+          "valueHint": "env_var_name",
+          "value": "PROMETHEUS_MCP_SERVER_PROMETHEUS_URL",
+          "description": "Environment variable name"
+        },
+        {
           "type": "positional",
           "valueHint": "image_name",
           "value": "ghcr.io/tjhop/prometheus-mcp-server",
           "description": "The container image to run"
-        }
-      ],
-      "packageArguments": [
-        {
-          "type": "named",
-          "name": "--prometheus.url",
-          "description": "URL of the Prometheus instance to connect to",
-          "default": "http://127.0.0.1:9090",
-          "isRequired": true
         }
       ]
     }
