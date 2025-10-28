@@ -311,7 +311,7 @@ func prometheusQueryToolHandler(ctx context.Context, request mcp.CallToolRequest
 
 	data, err := queryApiCall(ctx, query, ts)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making query api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -361,7 +361,7 @@ func prometheusRangeQueryToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making range query api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -397,7 +397,7 @@ func prometheusExemplarQueryToolHandler(ctx context.Context, request mcp.CallToo
 
 	data, err := exemplarQueryApiCall(ctx, query, startTs, endTs)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making exemplar api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -433,7 +433,7 @@ func prometheusSeriesToolHandler(ctx context.Context, request mcp.CallToolReques
 
 	data, err := seriesApiCall(ctx, matches, startTs, endTs)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making series api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -465,7 +465,7 @@ func prometheusLabelNamesToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	data, err := labelNamesApiCall(ctx, matches, startTs, endTs)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making label names api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -502,7 +502,7 @@ func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolR
 
 	data, err := labelValuesApiCall(ctx, label, matches, startTs, endTs)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making label values api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -510,7 +510,7 @@ func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolR
 func prometheusListAlertsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := listAlertsApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making list alerts api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -518,7 +518,7 @@ func prometheusListAlertsToolHandler(ctx context.Context, request mcp.CallToolRe
 func prometheusAlertmanagersToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := alertmanagersApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making alertmanagers api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -526,7 +526,7 @@ func prometheusAlertmanagersToolHandler(ctx context.Context, request mcp.CallToo
 func prometheusTsdbStatsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := tsdbStatsApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making TSDB stats api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -534,7 +534,7 @@ func prometheusTsdbStatsToolHandler(ctx context.Context, request mcp.CallToolReq
 func prometheusFlagsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := flagsApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making flags api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -542,7 +542,7 @@ func prometheusFlagsToolHandler(ctx context.Context, request mcp.CallToolRequest
 func prometheusBuildinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := buildinfoApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making build info api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -550,7 +550,7 @@ func prometheusBuildinfoToolHandler(ctx context.Context, request mcp.CallToolReq
 func prometheusConfigToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := configApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making config api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -558,7 +558,7 @@ func prometheusConfigToolHandler(ctx context.Context, request mcp.CallToolReques
 func prometheusRuntimeinfoToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := runtimeinfoApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making runtime info api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -566,7 +566,7 @@ func prometheusRuntimeinfoToolHandler(ctx context.Context, request mcp.CallToolR
 func prometheusRulesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := rulesApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making rules api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -574,7 +574,7 @@ func prometheusRulesToolHandler(ctx context.Context, request mcp.CallToolRequest
 func prometheusTargetsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := targetsApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making targets api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -586,7 +586,7 @@ func prometheusTargetsMetadataToolHandler(ctx context.Context, request mcp.CallT
 
 	data, err := targetsMetadataApiCall(ctx, matchTarget, metric, limit)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making targets metadata api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -598,7 +598,7 @@ func prometheusMetricMetadataToolHandler(ctx context.Context, request mcp.CallTo
 
 	data, err := metricMetadataApiCall(ctx, metric, limit)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making metric metadata api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -606,7 +606,7 @@ func prometheusMetricMetadataToolHandler(ctx context.Context, request mcp.CallTo
 func prometheusWalReplayToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := walReplayApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making WAL replay api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -614,7 +614,7 @@ func prometheusWalReplayToolHandler(ctx context.Context, request mcp.CallToolReq
 func prometheusCleanTombstonesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	data, err := cleanTombstonesApiCall(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making clean tombstones api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -650,7 +650,7 @@ func prometheusDeleteSeriesToolHandler(ctx context.Context, request mcp.CallTool
 
 	data, err := deleteSeriesApiCall(ctx, matches, startTs, endTs)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making delete series api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -660,7 +660,7 @@ func prometheusSnapshotToolHandler(ctx context.Context, request mcp.CallToolRequ
 
 	data, err := snapshotApiCall(ctx, skipHead)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making snapshot api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
@@ -673,7 +673,7 @@ func prometheusDocsListToolHandler(ctx context.Context, request mcp.CallToolRequ
 	// an in-process client or something similar, but this works for now.
 	res, err := docsListResourceHandler(ctx, resourceReadReq)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making docs list resource call: " + err.Error()), nil
 	}
 
 	toolRes := mcp.NewToolResultText("Documentation files found")
@@ -699,7 +699,7 @@ func prometheusDocsReadToolHandler(ctx context.Context, request mcp.CallToolRequ
 	// an in-process client or something similar, but this works for now.
 	res, err := docsReadResourceTemplateHandler(ctx, resourceReadReq)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError("failed making docs read resource template call: " + err.Error()), nil
 	}
 
 	toolRes := mcp.NewToolResultText("File content for documentation file: " + f)
@@ -752,7 +752,7 @@ func prometheusDocsSearchToolHandler(ctx context.Context, request mcp.CallToolRe
 
 		res, err := docsReadResourceTemplateHandler(ctx, resourceReadReq)
 		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			return mcp.NewToolResultError("failed making docs read resource template call: " + err.Error()), nil
 		}
 
 		for _, content := range res {

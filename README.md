@@ -11,14 +11,30 @@
 ## About
 This is an [MCP](https://modelcontextprotocol.io/introduction) server to allow LLMs to interact with a running [Prometheus](https://prometheus.io/) instance via the API to do things like generate and execute promql queries, list and analyze metrics, etc.
 
-Here is a screen recording using Google Gemini models to report on the health of the Prometheus instance that powers [prometheus.demo.prometheus.io/](https://prometheus.demo.prometheus.io/query). The prompt used was:
+### Demos and Examples
 
+#### Investigate metrics produced by the MCP server itself and suggest recording rules for SLOs
+
+The prompt used was:
+> use the tools from the prometheus mcp server to investigate the metrics from
+> the mcp server and suggest prometheus recording rules for SLOs
+
+[![Demo prompt to investigate metrics produced by the MCP server and create rules for SLOs](images/gemini_slo.gif)](https://asciinema.org/a/av3WhfD122A1HHOq2d4SEZgMn)
+
+#### Summarize Prometheus metric/label naming best practices
+
+The prompt used was:
+> summarize prometheus metric/label name best practices
+
+[![Demo prompt to summarize prometheus metric and label name best practies](images/gemini_docs_search.gif)](https://asciinema.org/a/o9RKpCXBmBmG4zqhuFsvTHf2C)
+
+#### Report on the health of the Prometheus instance that powers prometheus.demo.prometheus.io
+
+The prompt used was:
 > please provide a comprehensive review and summary of the prometheus server.
 > review it's configuration, flags, runtime/build info, and anything else that
 > you feel may provide insight into the status of the prometheus instance,
 > including analyzing metrics and executing queries
-
-:warning: _NOTE_: I used `yolo` mode in the demo to auto-accept tool usage. You probably shouldn't do this. Please read/understand/approve your tool usage, don't just let the LLM go wild. That's how you end up with robot overlords.
 
 [![Demo prompt to review the health of the demo.prometheus.io prometheus instance](images/demo-usage-with-prometheus-demo-server.gif)](https://asciinema.org/a/733513)
 
