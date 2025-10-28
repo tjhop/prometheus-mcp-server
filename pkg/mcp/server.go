@@ -271,10 +271,7 @@ func NewServer(ctx context.Context, logger *slog.Logger, promUrl string, promRt 
 	mcpServer.AddResource(docsListResource, docsListResourceHandler)
 
 	// Add resource templates.
-
-	// Waiting on resource template middleware support to be added upstream
-	// https://github.com/mark3labs/mcp-go/pull/582
-	mcpServer.AddResourceTemplate(docsReadResourceTemplate, server.ResourceTemplateHandlerFunc(docsLoaderResourceMW(docsReadResourceTemplateHandler)))
+	mcpServer.AddResourceTemplate(docsReadResourceTemplate, docsReadResourceTemplateHandler)
 
 	// Assemble the set of tools to register with the server.
 	var toolset []server.ServerTool
