@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -50,6 +51,12 @@ var (
 			" Otherwise, it is treated as an allow-list of tools to load, in addition to the core tools."+
 			" Please see project README for more information and the full list of tools.",
 	).Default("all").Strings()
+
+	flagPrometheusBackend = kingpin.Flag(
+		"prometheus.backend",
+		"Customize the toolset for a specific Prometheus API compatible backend."+
+			" Supported backends include: "+strings.Join(mcp.PrometheusBackends, ","),
+	).String()
 
 	flagPrometheusUrl = kingpin.Flag(
 		"prometheus.url",
@@ -134,7 +141,7 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(ctx, logger, *flagPrometheusUrl, rt, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
+	mcpServer := mcp.NewServer(ctx, logger, *flagPrometheusUrl, *flagPrometheusBackend, rt, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
 	srv := setupServer(logger)
 
 	var g run.Group

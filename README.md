@@ -109,6 +109,33 @@ Would result in the following tools being loaded:
 - `runtime_info`
 - `series`
 
+#### Prometheus Compatible Backends
+
+There are many Prometheus compatible backends that can be used to extend prometheus in a variety of ways, often with the goals of offering long term storage or query aggregation from multiple prometheus instances.
+Some examples can be found in the [Remote Storage](https://prometheus.io/docs/operating/integrations/#remote-endpoints-and-storage) of prometheus' docs.
+
+Many of those services also offer a "prometheus compatible" API that can be used to query/interact with the data using native promQL.
+In general, this MCP server should at a minimum work for other prometheus API compatible services to execute queries and interact with the series/labels/metadata endpoints for metric and label discovery.
+Beyond that, there may be API differences as the different systems implement different parts/extensions of the API for their needs.
+
+Examples:
+- Thanos does not use a centralized config, so the config endpoint is not implemented and thus the config tool fails.
+- Mimir and Cortex implement extra endpoints to manage/add/remove rules
+
+To workaround this and provide a better experience on some of the commonly used Prometheus compatible systems, this project may add direct support for select systems to provide different/more tools.
+Choosing a specific prometheus backend implementation can be done with the [`--prometheus.backend` flag](#command-line-flags).
+The list of available backend implementations on a given release of the MCP server can be found in the output of the [`--help` flag](#command-line-flags).
+Qualifications and support criteria are still under consideration, please open an issue to request support/features for a specific backend for further discussion.
+
+##### Prometheus Backend Implementation Differences
+
+| Backend | Tool | Add/Remove/Change | Notes |
+| --- | --- | --- | --- |
+| `prometheus` | n/a | none | Standard prometheus tools. Functionally equivalent to `--mcp.tools="all"`. The default MCP server toolset. |
+| [`thanos`](https://thanos.io/) | `alertmanagers` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+
 ### Resources
 
 | Resource Name | Resource URI | Description | 
