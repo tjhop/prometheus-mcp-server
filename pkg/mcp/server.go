@@ -285,10 +285,12 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 
 	switch {
 	case len(enabledTools) == 1 && enabledTools[0] == "all":
+		logger.Info("Setting tools based on provided toolset", "toolset", "all")
 		for _, tool := range prometheusToolset {
 			toolset = append(toolset, tool)
 		}
 	case len(enabledTools) == 1 && enabledTools[0] == "core":
+		logger.Info("Setting tools based on provided toolset", "toolset", "core")
 		for _, toolName := range CoreTools {
 			toolset = append(toolset, prometheusToolset[toolName])
 		}
@@ -297,6 +299,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 		enabledTools = append(enabledTools, CoreTools...)
 		slices.Sort(enabledTools)
 		enabledTools = slices.Compact(enabledTools)
+		logger.Info("Setting tools based on provided toolset", "toolset", enabledTools)
 
 		for _, toolName := range enabledTools {
 			val, ok := prometheusToolset[toolName]

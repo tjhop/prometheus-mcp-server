@@ -20,9 +20,7 @@ fmt: ## apply go code style formatter
 	${GOFMT} -x ./...
 
 lint: ## run linters
-	[ -d ${GOLANGCILINT_CACHE} ] || mkdir -p ${GOLANGCILINT_CACHE} 
-	# convert this to use golangic-lint from devbox, rather than docker
-	docker run --rm -v ${CURDIR}:/app -v ${GOLANGCILINT_CACHE}:/root/.cache -w /app docker.io/golangci/golangci-lint:latest golangci-lint run -v
+	golangci-lint run -v
 
 binary: submodules fmt tidy lint test ## build a binary
 	goreleaser build --clean --single-target --snapshot --output .
@@ -46,7 +44,7 @@ mcphost: build ## use mcphost to run the prometheus-mcp-server against a local o
 inspector: build ## use inspector to run the prometheus-mcp-server in STDIO transport mode
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
 
-inspector-http: build ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
+inspector-http: ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}-http"
 
 open-webui: build ## use open-webui to run the prometheus-mcp-server
