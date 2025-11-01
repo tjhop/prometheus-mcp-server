@@ -44,7 +44,7 @@ mcphost: build ## use mcphost to run the prometheus-mcp-server against a local o
 inspector: build ## use inspector to run the prometheus-mcp-server in STDIO transport mode
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
 
-inspector-http: build ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
+inspector-http: ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
 	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}-http"
 
 open-webui: build ## use open-webui to run the prometheus-mcp-server
