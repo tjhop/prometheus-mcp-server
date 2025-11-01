@@ -20,9 +20,7 @@ fmt: ## apply go code style formatter
 	${GOFMT} -x ./...
 
 lint: ## run linters
-	[ -d ${GOLANGCILINT_CACHE} ] || mkdir -p ${GOLANGCILINT_CACHE} 
-	# convert this to use golangic-lint from devbox, rather than docker
-	docker run --rm -v ${CURDIR}:/app -v ${GOLANGCILINT_CACHE}:/root/.cache -w /app docker.io/golangci/golangci-lint:latest golangci-lint run -v
+	golangci-lint run -v
 
 binary: submodules fmt tidy lint test ## build a binary
 	goreleaser build --clean --single-target --snapshot --output .
