@@ -213,7 +213,14 @@ func (m *telemetryMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc
 	}
 }
 
-func NewServer(ctx context.Context, logger *slog.Logger, promUrl string, promRt http.RoundTripper, enableTsdbAdminTools bool, enabledTools []string, docs fs.FS) *server.MCPServer {
+func NewServer(ctx context.Context, logger *slog.Logger,
+	promUrl string,
+	prometheusBackend string,
+	promRt http.RoundTripper,
+	enableTsdbAdminTools bool,
+	enabledTools []string,
+	docs fs.FS,
+) *server.MCPServer {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
@@ -317,6 +324,31 @@ func NewServer(ctx context.Context, logger *slog.Logger, promUrl string, promRt 
 			logger.Debug("Adding tool to toolset for registration", "tool_name", toolName)
 			toolset = append(toolset, val)
 		}
+	}
+
+	// If a specific prometheus compatible backend was provided, that
+	// overrides defined tools, since dynamic tool registration is specific
+	// to prometheus tools and they may not be compatible with all
+	// prometheus backends.
+	backend := strings.ToLower(prometheusBackend)
+	switch backend {
+	case "": // If no backend entered, keep loaded toolset.
+	case "prometheus":
+		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
+		var backendToolset []server.ServerTool
+		for _, tool := range prometheusToolset {
+			backendToolset = append(backendToolset, tool)
+		}
+		toolset = backendToolset
+	case "thanos":
+		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
+		var backendToolset []server.ServerTool
+		for _, tool := range thanosToolset {
+			backendToolset = append(backendToolset, tool)
+		}
+		toolset = backendToolset
+	default:
+		logger.Warn("Prometheus backend does not have custom tool support, keeping the existing loaded toolset", "backend", backend, "toolset", enabledTools)
 	}
 
 	// Add tools.
