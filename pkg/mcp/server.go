@@ -237,6 +237,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 	// TODO: allow users to specify additional instructions/context?
 
 	// Add middlewares.
+	logger.Info("Creating Prometheus API client", "prometheus_url", promUrl)
 	apiClientLoaderMW, err := newApiClientLoaderMiddleware(promUrl, promRt, logger)
 	if err != nil {
 		logger.Error("Failed to create default Prometheus client for MCP server", "err", err)
