@@ -1,9 +1,10 @@
 module github.com/tjhop/prometheus-mcp-server
 
-go 1.24.4
+go 1.25.3
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
+	github.com/alpkeskin/gotoon v0.1.0
 	github.com/blevesearch/bleve/v2 v2.5.4
 	github.com/mark3labs/mcp-go v0.43.0
 	github.com/oklog/run v1.2.0

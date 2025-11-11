@@ -51,6 +51,11 @@ var (
 			" Please see project README for more information and the full list of tools.",
 	).Default("all").Strings()
 
+	flagMcpToonOutputEnabled = kingpin.Flag(
+		"mcp.enable-toon-output",
+		"Enable Token-Oriented Object Notation (TOON) output for tools instead of JSON",
+	).Default("false").Bool()
+
 	flagPrometheusBackend = kingpin.Flag(
 		"prometheus.backend",
 		"Customize the toolset for a specific Prometheus API compatible backend."+
@@ -140,7 +145,15 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(ctx, logger, *flagPrometheusUrl, *flagPrometheusBackend, rt, *flagEnableTsdbAdminTools, *flagMcpTools, docsFs)
+	mcpServer := mcp.NewServer(ctx, logger,
+		*flagPrometheusUrl,
+		*flagPrometheusBackend,
+		rt,
+		*flagEnableTsdbAdminTools,
+		*flagMcpTools,
+		docsFs,
+		*flagMcpToonOutputEnabled,
+	)
 	srv := setupServer(logger)
 
 	var g run.Group
