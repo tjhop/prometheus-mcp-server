@@ -140,7 +140,7 @@ func docsReadResourceTemplateHandler(ctx context.Context, request mcp.ReadResour
 		resourceContents = append(resourceContents, mcp.TextResourceContents{
 			URI:      request.Params.URI,
 			MIMEType: "text/markdown",
-			Text:     content, // TODO: @tjhop: strip markdown frontmatter?
+			Text:     content,
 		})
 	}
 
