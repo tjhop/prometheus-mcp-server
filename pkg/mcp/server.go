@@ -81,6 +81,36 @@ func init() {
 	)
 }
 
+// Context key and middleware for controlling tool output (`JSON` by default,
+// `TOON` if enabled at the cli).
+type toonOutputKey struct{}
+type toonOutputMiddleware struct {
+	enabled bool
+}
+
+func newToonOutputMiddleware(enabled bool) *toonOutputMiddleware {
+	return &toonOutputMiddleware{enabled: enabled}
+}
+
+func addToonOutputToContext(ctx context.Context, enabled bool) context.Context {
+	return context.WithValue(ctx, toonOutputKey{}, enabled)
+}
+
+func getToonOutputFromContext(ctx context.Context) bool {
+	enabled, ok := ctx.Value(toonOutputKey{}).(bool)
+	if !ok {
+		return false
+	}
+
+	return enabled
+}
+
+func (m *toonOutputMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return next(addToonOutputToContext(ctx, m.enabled), req)
+	}
+}
+
 // Context key and middlewares for embedding Prometheus' API client into a
 // context for use with tool/resource calls. Avoids the need for
 // global/external state to maintain the API client otherwise.
@@ -220,6 +250,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 	enableTsdbAdminTools bool,
 	enabledTools []string,
 	docs fs.FS,
+	toonEnabled bool,
 ) *server.MCPServer {
 	hooks := &server.Hooks{}
 
@@ -245,6 +276,9 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
 	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
+	toonOutputMW := newToonOutputMiddleware(toonEnabled)
+	toonOutputToolMW := toonOutputMW.ToolMiddleware
+
 	docsLoaderMW := newDocsLoaderMiddleware(logger, docs)
 	docsLoaderToolMW := docsLoaderMW.ToolMiddleware
 	docsLoaderResourceMW := docsLoaderMW.ResourceMiddleware
@@ -264,6 +298,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
+		server.WithToolHandlerMiddleware(toonOutputToolMW),
 		server.WithToolHandlerMiddleware(docsLoaderToolMW),
 		server.WithToolHandlerMiddleware(telemetryToolMW),
 		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),

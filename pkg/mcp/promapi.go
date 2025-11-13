@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alpkeskin/gotoon"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -57,6 +58,25 @@ func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error
 	return client, nil
 }
 
+func toonOrJsonOutput(ctx context.Context, data any) (string, error) {
+	toonEnabled := getToonOutputFromContext(ctx)
+	if toonEnabled {
+		toonEncodedData, err := gotoon.Encode(data)
+		if err != nil {
+			return "", fmt.Errorf("error TOON encoding data: %w", err)
+		}
+
+		return toonEncodedData, nil
+	}
+
+	jsonEncodedData, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling to JSON: %w", err)
+	}
+
+	return string(jsonEncodedData), nil
+}
+
 func alertmanagersApiCall(ctx context.Context) (string, error) {
 	client, err := getApiClientFromContext(ctx)
 	if err != nil {
@@ -74,12 +94,12 @@ func alertmanagersApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting alertmanager status from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(ams)
+	encodedData, err := toonOrJsonOutput(ctx, ams)
 	if err != nil {
-		return "", fmt.Errorf("error converting alertmanager status to JSON: %w", err)
+		return "", fmt.Errorf("error encoding alertmanager status: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func flagsApiCall(ctx context.Context) (string, error) {
@@ -99,12 +119,12 @@ func flagsApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting runtime flags from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(flags)
+	encodedData, err := toonOrJsonOutput(ctx, flags)
 	if err != nil {
-		return "", fmt.Errorf("error converting runtime flags to JSON: %w", err)
+		return "", fmt.Errorf("error encoding runtime flags: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func listAlertsApiCall(ctx context.Context) (string, error) {
@@ -124,12 +144,12 @@ func listAlertsApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting alerts from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(alerts)
+	encodedData, err := toonOrJsonOutput(ctx, alerts)
 	if err != nil {
-		return "", fmt.Errorf("error converting alerts to JSON: %w", err)
+		return "", fmt.Errorf("error encoding alerts: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func tsdbStatsApiCall(ctx context.Context) (string, error) {
@@ -149,12 +169,12 @@ func tsdbStatsApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting tsdb stats from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(tsdbStats)
+	encodedData, err := toonOrJsonOutput(ctx, tsdbStats)
 	if err != nil {
-		return "", fmt.Errorf("error converting tsdb stats to JSON: %w", err)
+		return "", fmt.Errorf("error encoding tsdb stats: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 type queryApiResponse struct {
@@ -184,12 +204,12 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 		Warnings: warnings,
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding query response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, step time.Duration) (string, error) {
@@ -214,12 +234,12 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 		Warnings: warnings,
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding query response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Time) (string, error) {
@@ -239,12 +259,12 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 		return "", fmt.Errorf("error executing exemplar query: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting query response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding query response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
@@ -275,12 +295,12 @@ func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) 
 		Warnings: warnings,
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting series response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding series response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
@@ -305,12 +325,12 @@ func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Ti
 		Warnings: warnings,
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting label names response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding label names response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func labelValuesApiCall(ctx context.Context, label string, matches []string, start, end time.Time) (string, error) {
@@ -340,12 +360,12 @@ func labelValuesApiCall(ctx context.Context, label string, matches []string, sta
 		Warnings: warnings,
 	}
 
-	jsonBytes, err := json.Marshal(res)
+	encodedData, err := toonOrJsonOutput(ctx, res)
 	if err != nil {
-		return "", fmt.Errorf("error converting label values response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding label values response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func buildinfoApiCall(ctx context.Context) (string, error) {
@@ -365,12 +385,12 @@ func buildinfoApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting build info from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(bi)
+	encodedData, err := toonOrJsonOutput(ctx, bi)
 	if err != nil {
-		return "", fmt.Errorf("error converting build info to JSON: %w", err)
+		return "", fmt.Errorf("error encoding build info: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func configApiCall(ctx context.Context) (string, error) {
@@ -390,12 +410,12 @@ func configApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting configuration from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(cfg)
+	encodedData, err := toonOrJsonOutput(ctx, cfg)
 	if err != nil {
-		return "", fmt.Errorf("error converting configuration to JSON: %w", err)
+		return "", fmt.Errorf("error encoding configuration: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func runtimeinfoApiCall(ctx context.Context) (string, error) {
@@ -415,12 +435,12 @@ func runtimeinfoApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting runtime info from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(ri)
+	encodedData, err := toonOrJsonOutput(ctx, ri)
 	if err != nil {
-		return "", fmt.Errorf("error converting runtime info to JSON: %w", err)
+		return "", fmt.Errorf("error encoding runtime info: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func rulesApiCall(ctx context.Context) (string, error) {
@@ -440,12 +460,12 @@ func rulesApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting rules from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(rules)
+	encodedData, err := toonOrJsonOutput(ctx, rules)
 	if err != nil {
-		return "", fmt.Errorf("error converting rules to JSON: %w", err)
+		return "", fmt.Errorf("error encoding rules: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func targetsApiCall(ctx context.Context) (string, error) {
@@ -465,12 +485,12 @@ func targetsApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting targets from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(targets)
+	encodedData, err := toonOrJsonOutput(ctx, targets)
 	if err != nil {
-		return "", fmt.Errorf("error converting targets to JSON: %w", err)
+		return "", fmt.Errorf("error encoding targets response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit string) (string, error) {
@@ -490,12 +510,12 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 		return "", fmt.Errorf("error getting target metadata from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(tm)
+	encodedData, err := toonOrJsonOutput(ctx, tm)
 	if err != nil {
-		return "", fmt.Errorf("error converting target metadata to JSON: %w", err)
+		return "", fmt.Errorf("error encoding target metadata: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, error) {
@@ -515,12 +535,12 @@ func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, e
 		return "", fmt.Errorf("error getting metric metadata from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(mm)
+	encodedData, err := toonOrJsonOutput(ctx, mm)
 	if err != nil {
-		return "", fmt.Errorf("error converting metric metadata to JSON: %w", err)
+		return "", fmt.Errorf("error encoding metric metadata: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func walReplayApiCall(ctx context.Context) (string, error) {
@@ -540,12 +560,12 @@ func walReplayApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting WAL replay status from Prometheus: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(wal)
+	encodedData, err := toonOrJsonOutput(ctx, wal)
 	if err != nil {
-		return "", fmt.Errorf("error converting WAL replay status to JSON: %w", err)
+		return "", fmt.Errorf("error encoding WAL replay status: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }
 
 func cleanTombstonesApiCall(ctx context.Context) (string, error) {
@@ -605,10 +625,10 @@ func snapshotApiCall(ctx context.Context, skipHead bool) (string, error) {
 		return "", fmt.Errorf("error creating Prometheus snapshot: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(ss)
+	encodedData, err := toonOrJsonOutput(ctx, ss)
 	if err != nil {
-		return "", fmt.Errorf("error converting snapshot response to JSON: %w", err)
+		return "", fmt.Errorf("error encoding snapshot response: %w", err)
 	}
 
-	return string(jsonBytes), nil
+	return encodedData, nil
 }

@@ -40,6 +40,14 @@ The prompt used was:
 
 ### Tools
 
+The Prometheus HTTP API outputs JSON data, and the tools in this MCP server return that JSON to the LLM for processing as it's structured and well understood by LLMs.
+
+If token/context usage is a concern, this MCP server also supports converting the API's JSON data to the [Token-Oriented Object Notation (TOON) format](https://github.com/toon-format/toon).
+While it is not guaranteed to reduce token usage, it is designed with token efficiency in mind.
+As noted on TOON's documentation, it excels at uniform arrays of objects; non-uniform/complex objects may still be more token-efficient in JSON.
+Real world token usage will depend on usage patterns, please review common workflows to determine if TOON output may be beneficial.
+Please see [Flags](#command-line-flags) for more information on the available flags and their corresponding environment variables.
+
 #### Full Tool List
 
 | Tool Name | Description |
