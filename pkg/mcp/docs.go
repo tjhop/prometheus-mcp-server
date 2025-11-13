@@ -17,6 +17,10 @@ import (
 	"github.com/tmc/langchaingo/textsplitter"
 )
 
+var (
+	stripFrontmatterRegex = regexp.MustCompile(`(?s)^---\n.*?\n---\n?`)
+)
+
 // Context key and middlewares for embedding Prometheus' docs as an fs.FS into
 // a context for use with tool/resource calls. Avoids the need for
 // global/external state to maintain the docs FS otherwise.
@@ -39,8 +43,7 @@ func getDocsFsFromContext(ctx context.Context) (*docsLoaderMiddleware, error) {
 // markdown block, if present.
 // The frontmatter is the beginning block that start and end with a line `---`.
 func stripFrontmatter(content string) string {
-	re := regexp.MustCompile(`(?s)^---\n.*?\n---\n?`)
-	return re.ReplaceAllString(content, "")
+	return stripFrontmatterRegex.ReplaceAllString(content, "")
 }
 
 func getDocFileNames(fsys fs.FS) ([]string, error) {
