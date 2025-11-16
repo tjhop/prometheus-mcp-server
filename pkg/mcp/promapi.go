@@ -19,8 +19,7 @@ import (
 var (
 	DefaultLookbackDelta = -5 * time.Minute
 
-	apiTimeout   = 1 * time.Minute
-	queryTimeout = 30 * time.Second
+	apiTimeout time.Duration
 
 	metricApiCallsFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -192,7 +191,7 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 
 	path := "/api/v1/query"
 	startTs := time.Now()
-	result, warnings, err := client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
+	result, warnings, err := client.Query(ctx, query, ts)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()

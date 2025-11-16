@@ -67,6 +67,11 @@ var (
 		"URL of the Prometheus instance to connect to",
 	).Default("http://127.0.0.1:9090").String()
 
+	flagPrometheusTimeout = kingpin.Flag(
+		"prometheus.timeout",
+		"Timeout for API calls to the Prometheus backend",
+	).Default("1m").Duration()
+
 	flagHttpConfig = kingpin.Flag(
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
@@ -148,6 +153,7 @@ func main() {
 	mcpServer := mcp.NewServer(ctx, logger,
 		*flagPrometheusUrl,
 		*flagPrometheusBackend,
+		*flagPrometheusTimeout,
 		rt,
 		*flagEnableTsdbAdminTools,
 		*flagMcpTools,
