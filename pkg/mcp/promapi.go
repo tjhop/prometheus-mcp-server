@@ -21,8 +21,6 @@ var (
 
 	apiTimeout time.Duration
 
-	queryTimeout = 30 * time.Second
-
 	metricApiCallsFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: prometheus.BuildFQName(metrics.MetricNamespace, "api", "calls_failed_total"),
@@ -193,7 +191,7 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 
 	path := "/api/v1/query"
 	startTs := time.Now()
-	result, warnings, err := client.Query(ctx, query, ts, promv1.WithTimeout(queryTimeout))
+	result, warnings, err := client.Query(ctx, query, ts)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
