@@ -19,7 +19,8 @@ import (
 var (
 	DefaultLookbackDelta = -5 * time.Minute
 
-	apiTimeout   = 1 * time.Minute
+	apiTimeout time.Duration
+
 	queryTimeout = 30 * time.Second
 
 	metricApiCallsFailed = prometheus.NewCounterVec(
