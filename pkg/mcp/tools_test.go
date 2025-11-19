@@ -112,7 +112,10 @@ func TestQueryToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusQueryTool, prometheusQueryToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -243,7 +246,10 @@ func TestRangeQueryToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusRangeQueryTool, prometheusRangeQueryToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -311,7 +317,10 @@ func TestSnapshotToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusSnapshotTool, prometheusSnapshotToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -427,7 +436,10 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusDeleteSeriesTool, prometheusDeleteSeriesToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -491,7 +503,10 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusCleanTombstonesTool, prometheusCleanTombstonesToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -577,7 +592,10 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusMetricMetadataTool, prometheusMetricMetadataToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -665,7 +683,10 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusTargetsMetadataTool, prometheusTargetsMetadataToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -729,7 +750,10 @@ func TestListTargetsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusTargetsTool, prometheusTargetsToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -793,7 +817,10 @@ func TestListRulesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusRulesTool, prometheusRulesToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -857,7 +884,10 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusRuntimeinfoTool, prometheusRuntimeinfoToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -921,7 +951,10 @@ func TestConfigToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusConfigTool, prometheusConfigToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -985,7 +1018,10 @@ func TestBuildinfoToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusBuildinfoTool, prometheusBuildinfoToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1049,7 +1085,10 @@ func TestFlagsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusFlagsTool, prometheusFlagsToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1113,7 +1152,10 @@ func TestListAlertsToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusListAlertsTool, prometheusListAlertsToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1229,7 +1271,10 @@ func TestLabelValuesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusLabelValuesTool, prometheusLabelValuesToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -1345,7 +1390,10 @@ func TestSeriesToolHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusSeriesTool, prometheusSeriesToolHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
