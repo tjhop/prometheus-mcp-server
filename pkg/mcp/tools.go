@@ -1,10 +1,18 @@
 package mcp
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -98,6 +106,8 @@ var (
 	}
 )
 
+// Utility functions that are used amongst various tool related things.
+
 func getToolCallResultAsString(result *mcp.CallToolResult) string {
 	var out strings.Builder
 	for _, c := range result.Content {
@@ -118,4 +128,59 @@ func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) st
 	}
 
 	return out.String()
+}
+
+// doHttpRequest is a generalized way to use the round tripper and prometheus
+// url from the api client context middleware and construct an http.Client for
+// use with other endpoints, such as those from 3rd party prometheus compatible
+// systems.
+//
+// This function always requests/works with JSON, and unmarshal's responses to
+// a generic interface. The structured output is then either encoded as TOON or
+// left as JSON before converting to a string for return.
+func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, requestURL string, requestPath string) (string, error) {
+	fullPath, err := url.JoinPath(requestURL, requestPath)
+	if err != nil {
+		return "", fmt.Errorf("error constructing URL for request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating HTTP request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	httpClient := http.Client{
+		Transport: rt,
+	}
+
+	startTs := time.Now()
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error making HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+	metricApiCallDuration.With(prometheus.Labels{"target_path": requestPath}).Observe(time.Since(startTs).Seconds())
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("received non-ok HTTP status code: %w", err)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %w", err)
+	}
+
+	var data any
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return "", fmt.Errorf("error unmarshaling JSON response: %w", err)
+	}
+
+	encodedData, err := toonOrJsonOutput(ctx, data)
+	if err != nil {
+		return "", fmt.Errorf("error encoding response from \"%s\": %w", requestPath, err)
+	}
+
+	return encodedData, nil
 }
