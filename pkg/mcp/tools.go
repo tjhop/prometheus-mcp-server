@@ -98,9 +98,19 @@ var (
 	}
 )
 
+func getToolCallResultAsString(result *mcp.CallToolResult) string {
+	var out strings.Builder
+	for _, c := range result.Content {
+		if text, ok := c.(mcp.TextContent); ok {
+			out.WriteString(text.Text)
+		}
+	}
+
+	return out.String()
+}
+
 func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) string {
 	var out strings.Builder
-
 	for _, rc := range resourceContents {
 		if textRC, ok := rc.(mcp.TextResourceContents); ok {
 			out.WriteString(textRC.Text)

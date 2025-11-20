@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,17 +12,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 )
-
-func toolCallResultAsString(result *mcp.CallToolResult) string {
-	var output strings.Builder
-	for _, c := range result.Content {
-		if text, ok := c.(mcp.TextContent); ok {
-			output.WriteString(text.Text)
-		}
-	}
-
-	return output.String()
-}
 
 func TestQueryToolHandler(t *testing.T) {
 	testCases := []struct {
@@ -55,7 +43,7 @@ func TestQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.False(t, result.IsError)
-				require.JSONEq(t, `{"result":"{} =\u003e 1 @[1756143048]","warnings":null}`, toolCallResultAsString(result))
+				require.JSONEq(t, `{"result":"{} =\u003e 1 @[1756143048]","warnings":null}`, getToolCallResultAsString(result))
 			},
 		},
 		{
@@ -70,7 +58,7 @@ func TestQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "query must be a string")
+				require.Contains(t, getToolCallResultAsString(result), "query must be a string")
 			},
 		},
 		{
@@ -88,7 +76,7 @@ func TestQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 		{
@@ -103,7 +91,7 @@ func TestQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to get ts from args")
+				require.Contains(t, getToolCallResultAsString(result), "failed to get ts from args")
 			},
 		},
 	}
@@ -174,7 +162,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "query must be a string")
+				require.Contains(t, getToolCallResultAsString(result), "query must be a string")
 			},
 		},
 		{
@@ -192,7 +180,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 		{
@@ -207,7 +195,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
 			},
 		},
 		{
@@ -222,7 +210,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
 		{
@@ -237,7 +225,7 @@ func TestRangeQueryToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse duration")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse duration")
 			},
 		},
 	}
@@ -308,7 +296,7 @@ func TestSnapshotToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -379,7 +367,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "matches must be an array")
+				require.Contains(t, getToolCallResultAsString(result), "matches must be an array")
 			},
 		},
 		{
@@ -397,7 +385,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 		{
@@ -412,7 +400,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
 			},
 		},
 		{
@@ -427,7 +415,7 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
 	}
@@ -494,7 +482,7 @@ func TestCleanTombstonesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -583,7 +571,7 @@ func TestMetricMetadataToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -674,7 +662,7 @@ func TestTargetsMetadataToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -741,7 +729,7 @@ func TestListTargetsToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -808,7 +796,7 @@ func TestListRulesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -875,7 +863,7 @@ func TestRuntimeinfoToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -942,7 +930,7 @@ func TestConfigToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -1009,7 +997,7 @@ func TestBuildinfoToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -1076,7 +1064,7 @@ func TestFlagsToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -1143,7 +1131,7 @@ func TestListAlertsToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 	}
@@ -1214,7 +1202,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "label must be a string")
+				require.Contains(t, getToolCallResultAsString(result), "label must be a string")
 			},
 		},
 		{
@@ -1232,7 +1220,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 		{
@@ -1247,7 +1235,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
 			},
 		},
 		{
@@ -1262,7 +1250,7 @@ func TestLabelValuesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
 	}
@@ -1333,7 +1321,7 @@ func TestSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "matches must be an array")
+				require.Contains(t, getToolCallResultAsString(result), "matches must be an array")
 			},
 		},
 		{
@@ -1351,7 +1339,7 @@ func TestSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "prometheus exploded")
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
 			},
 		},
 		{
@@ -1366,7 +1354,7 @@ func TestSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse start_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
 			},
 		},
 		{
@@ -1381,7 +1369,7 @@ func TestSeriesToolHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
-				require.Contains(t, toolCallResultAsString(result), "failed to parse end_time")
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
 	}
