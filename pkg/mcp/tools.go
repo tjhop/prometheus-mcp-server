@@ -68,10 +68,14 @@ var (
 	// thanosToolset contains all the tools to interact with thanos as a
 	// prometheus HTTP API compatible backend.
 	//
-	// Currently, the only difference between thanosToolset and
-	// prometheusToolset is that thanosToolset has the following tools
-	// removed because they are not implemented in Thanos and return 404s:
-	// [alertmanagers, config, wal_replay_status].
+	// Tool difference from prometheusToolset:
+	//  - Added
+	//    - list_stores
+	//  - Changed
+	//  - Removed
+	//    - alertmanagers
+	//    - config
+	//    - wal_replay_status
 	thanosToolset = map[string]server.ServerTool{
 		"build_info":       {Tool: prometheusBuildinfoTool, Handler: prometheusBuildinfoToolHandler},
 		"clean_tombstones": {Tool: prometheusCleanTombstonesTool, Handler: prometheusCleanTombstonesToolHandler},
@@ -94,6 +98,7 @@ var (
 		"targets_metadata": {Tool: prometheusTargetsMetadataTool, Handler: prometheusTargetsMetadataToolHandler},
 		"list_targets":     {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":       {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
+		"list_stores":      {Tool: thanosStoresTool, Handler: thanosStoresToolHandler},
 	}
 
 	// PrometheusBackends is a list of directly supported Prometheus API
