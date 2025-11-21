@@ -115,6 +115,16 @@ func (m *toonOutputMiddleware) ToolMiddleware(next server.ToolHandlerFunc) serve
 // context for use with tool/resource calls. Avoids the need for
 // global/external state to maintain the API client otherwise.
 type apiClientKey struct{}
+
+// promApi is a container for a request-specific prometheus api client, like
+// can happen when forwarding auth headers.
+type promApi struct {
+	// Embed the API client so that promApi container satisfies promv1.API.
+	promv1.API
+	url          string
+	roundtripper http.RoundTripper
+}
+
 type apiClientLoaderMiddleware struct {
 	prometheusUrl string
 	roundTripper  http.RoundTripper
@@ -134,19 +144,19 @@ func addApiClientToContext(ctx context.Context, c promv1.API) context.Context {
 	return context.WithValue(ctx, apiClientKey{}, c)
 }
 
-func getApiClientFromContext(ctx context.Context) (promv1.API, error) {
-	client, ok := ctx.Value(apiClientKey{}).(promv1.API)
+func getApiClientFromContext(ctx context.Context) (promApi, error) {
+	prom, ok := ctx.Value(apiClientKey{}).(promApi)
 	if !ok {
-		return nil, errors.New("failed to get prometheus API client from context")
+		return promApi{}, errors.New("failed to get prometheus API client from context")
 	}
 
-	return client, nil
+	return prom, nil
 }
 
 // If there's an Authorization header, create a new RoundTripper
 // with the credentials from the header, otherwise return the
 // default client.
-func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
+func (m *apiClientLoaderMiddleware) getClient(header http.Header) (promv1.API, http.RoundTripper) {
 	authorization := header.Get("Authorization")
 	if header != nil && authorization != "" {
 		var authType, secret string
@@ -154,7 +164,7 @@ func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
 			authTypeCredentials := strings.Split(authorization, " ")
 			if len(authTypeCredentials) != 2 {
 				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "X-Request-ID", header.Get("X-Request-ID"))
-				return m.defaultClient
+				return m.defaultClient, m.roundTripper
 			}
 			authType = authTypeCredentials[0]
 			secret = authTypeCredentials[1]
@@ -167,22 +177,34 @@ func (m *apiClientLoaderMiddleware) getClient(header http.Header) promv1.API {
 		client, err := NewAPIClient(m.prometheusUrl, rt)
 		if err != nil {
 			m.logger.Error("Failed to create Prometheus client with credentials from request header", "err", err)
-			return m.defaultClient
+			return m.defaultClient, m.roundTripper
 		}
-		return client
+		return client, rt
 	}
-	return m.defaultClient
+	return m.defaultClient, m.roundTripper
 }
 
 func (m *apiClientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return next(addApiClientToContext(ctx, m.getClient(req.Header)), req)
+		c, rt := m.getClient(req.Header)
+		prom := promApi{
+			API:          c,
+			url:          m.prometheusUrl,
+			roundtripper: rt,
+		}
+		return next(addApiClientToContext(ctx, prom), req)
 	}
 }
 
 func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
 	return func(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return next(addApiClientToContext(ctx, m.getClient(req.Header)), req)
+		c, rt := m.getClient(req.Header)
+		prom := promApi{
+			API:          c,
+			url:          m.prometheusUrl,
+			roundtripper: rt,
+		}
+		return next(addApiClientToContext(ctx, prom), req)
 	}
 }
 

@@ -79,7 +79,10 @@ func TestListMetricsResourceHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddResource(listMetricsResource, listMetricsResourceHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -152,7 +155,10 @@ func TestTargetsResourceHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddResource(targetsResource, targetsResourceHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
@@ -216,7 +222,10 @@ func TestTsdbStatsResourceHandler(t *testing.T) {
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
 
-	ctx := addApiClientToContext(context.Background(), mockAPI)
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
 	err := mockServer.Start(ctx)
 	require.NoError(t, err)
 	defer mockServer.Close()
