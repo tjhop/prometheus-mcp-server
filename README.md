@@ -143,6 +143,7 @@ Qualifications and support criteria are still under consideration, please open a
 | [`thanos`](https://thanos.io/) | `alertmanagers` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
 
 ### Resources
 
