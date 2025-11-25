@@ -213,6 +213,14 @@ systemctl enable --now prometheus-mcp-server.service
 
 _Note_: While packages are built for several systems, there are currently no plans to attempt to submit packages to upstream package repositories.
 
+## Security and Authentication
+### Connecting to Secure Prometheus Instances
+
+The MCP server supports [Prometheus HTTP config](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config) files to connect to secured Prometheus instances.
+An example config can be found [in the examples folder here](./examples/http-config.yml).
+Use the `--http.config` command-line flag to provide an HTTP configuration file.
+Please see [Flags](#command-line-flags) for more information.
+
 ## Telemetry
 ### Metrics
 
