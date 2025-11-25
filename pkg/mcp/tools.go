@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alpkeskin/gotoon"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/prometheus/client_golang/prometheus"
@@ -112,6 +113,25 @@ var (
 )
 
 // Utility functions that are used amongst various tool related things.
+
+func toonOrJsonOutput(ctx context.Context, data any) (string, error) {
+	toonEnabled := getToonOutputFromContext(ctx)
+	if toonEnabled {
+		toonEncodedData, err := gotoon.Encode(data)
+		if err != nil {
+			return "", fmt.Errorf("error TOON encoding data: %w", err)
+		}
+
+		return toonEncodedData, nil
+	}
+
+	jsonEncodedData, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling to JSON: %w", err)
+	}
+
+	return string(jsonEncodedData), nil
+}
 
 func getToolCallResultAsString(result *mcp.CallToolResult) string {
 	var out strings.Builder
