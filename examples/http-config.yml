@@ -1,6 +1,21 @@
 # Prometheus HTTP config file
-# https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
+# See https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
+# for the full list of options.
 
+# Example Basic Authentication
 basic_auth:
   username: foo
   password: bar
+
+# Example Bearer Token Authentication
+# bearer_token: "your_bearer_token_here"
+#
+# To read the token from a file:
+# bearer_token_file: /path/to/bearer.token
+
+# Example TLS configuration
+tls_config:
+  ca_file: /path/to/ca.crt
+  cert_file: /path/to/client.crt
+  key_file: /path/to/client.key
+  # insecure_skip_verify: false
