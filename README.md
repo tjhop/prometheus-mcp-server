@@ -221,6 +221,12 @@ An example config can be found [in the examples folder here](./examples/http-con
 Use the `--http.config` command-line flag to provide an HTTP configuration file.
 Please see [Flags](#command-line-flags) for more information.
 
+### Securing the MCP Server Endpoints
+
+The MCP server supports [Prometheus Web Configuration files](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) files to expose it's endpoints behind optional basic auth and custom TLS configs.
+Use the `--web.config.file` command-line flag to provide an HTTP configuration file.
+Please see [Flags](#command-line-flags) for more information.
+
 ## Telemetry
 ### Metrics
 
