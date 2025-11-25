@@ -155,10 +155,6 @@ Qualifications and support criteria are still under consideration, please open a
 | `prometheus://docs` | List of official Prometheus Documentation files |
 | `prometheus://docs{/file*}` | Read official Prometheus Documentation files by name | 
 
-### Prompts
-
-_Not implemented yet, to be determined_
-
 ## Installation and Usage
 
 This MCP server is most useful when fully integrated with tooling and/or installed as a tool server with another system.
