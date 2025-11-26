@@ -60,6 +60,7 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `docs_search` | Search the markdown files containing official Prometheus documentation from the prometheus/docs repo |
 | `exemplars_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
+| `healthy` | Management API endpoint that can be used to check Prometheus health |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
 | `label_values` | Performs a query for the values of the given label, time range and matchers |
 | `list_alerts` | List all active alerts |
@@ -67,16 +68,15 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `list_targets` | Get overview of Prometheus target discovery |
 | `metric_metadata` | Returns metadata about metrics currently scraped by the metric name | 
 | `query` | Execute an instant query against the Prometheus datasource |
+| `quit` | Management API endpoint that can be used to trigger a graceful shutdown of Prometheus |
 | `range_query` | Execute a range query against the Prometheus datasource |
+| `ready` | Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries |
+| `reload` | Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files |
 | `runtime_info` | Get Prometheus runtime information |
 | `series` | Finds series by label matchers |
 | `targets_metadata` | Returns metadata about metrics currently scraped by the target |
 | `tsdb_stats` | Get usage and cardinality statistics from the TSDB |
 | `wal_replay_status` | Get current WAL replay status |
-| `healthy` | Management API endpoint that can be used to check Prometheus health |
-| `ready` | Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries |
-| `reload` | Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files |
-| `quit` | Management API endpoint that can be used to trigger a graceful shutdown of Prometheus |
 
 __NOTE:__ 
 > Because the [TSDB Admin API endpoints](https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis)
