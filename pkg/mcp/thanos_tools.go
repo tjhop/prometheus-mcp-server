@@ -22,7 +22,7 @@ func thanosStoresToolHandler(ctx context.Context, request mcp.CallToolRequest) (
 	defer cancel()
 
 	path := "/api/v1/stores"
-	data, err := doHttpRequest(ctx, http.MethodGet, client.roundtripper, client.url, path)
+	data, err := doHttpRequest(ctx, http.MethodGet, client.roundtripper, client.url, path, true)
 	if err != nil {
 		return mcp.NewToolResultError("error getting stores from Thanos: " + err.Error()), nil
 	}

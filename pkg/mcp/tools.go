@@ -160,10 +160,10 @@ func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) st
 // use with other endpoints, such as those from 3rd party prometheus compatible
 // systems.
 //
-// This function always requests/works with JSON, and unmarshal's responses to
-// a generic interface. The structured output is then either encoded as TOON or
-// left as JSON before converting to a string for return.
-func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, requestURL string, requestPath string) (string, error) {
+// If expectJson is true, it unmarshal's responses to a generic interface. The
+// output is then either encoded as TOON or left as JSON before converting to a
+// string for return.
+func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, requestURL string, requestPath string, expectJson bool) (string, error) {
 	fullPath, err := url.JoinPath(requestURL, requestPath)
 	if err != nil {
 		return "", fmt.Errorf("error constructing URL for request: %w", err)
@@ -197,9 +197,13 @@ func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, req
 	}
 
 	var data any
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return "", fmt.Errorf("error unmarshaling JSON response: %w", err)
+	if expectJson {
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			return "", fmt.Errorf("error unmarshaling JSON response: %w", err)
+		}
+	} else {
+		data = string(body)
 	}
 
 	encodedData, err := toonOrJsonOutput(ctx, data)
