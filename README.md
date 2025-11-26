@@ -73,6 +73,10 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `targets_metadata` | Returns metadata about metrics currently scraped by the target |
 | `tsdb_stats` | Get usage and cardinality statistics from the TSDB |
 | `wal_replay_status` | Get current WAL replay status |
+| `healthy` | Management API endpoint that can be used to check Prometheus health |
+| `ready` | Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries |
+| `reload` | Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files |
+| `quit` | Management API endpoint that can be used to trigger a graceful shutdown of Prometheus |
 
 __NOTE:__ 
 > Because the [TSDB Admin API endpoints](https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis)
@@ -144,6 +148,8 @@ Qualifications and support criteria are still under consideration, please open a
 | [`thanos`](https://thanos.io/) | `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
+| [`thanos`](https://thanos.io/) | `reload` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `quit` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 
 ### Resources
 
