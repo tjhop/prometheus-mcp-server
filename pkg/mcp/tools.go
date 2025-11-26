@@ -192,7 +192,7 @@ func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, req
 	metricApiCallDuration.With(prometheus.Labels{"target_path": requestPath}).Observe(time.Since(startTs).Seconds())
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received non-ok HTTP status code: %w", err)
+		return "", fmt.Errorf("received non-ok HTTP status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
