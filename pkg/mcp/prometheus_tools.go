@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 	"path"
 	"strings"
 	"time"
@@ -204,6 +205,23 @@ var (
 		mcp.WithBoolean("skip_head",
 			mcp.Description("[Optional] Skip data present in the head block."),
 		),
+	)
+
+	// Tools for Prometheus Management API.
+	prometheusHealthyTool = mcp.NewTool("healthy",
+		mcp.WithDescription("Management API endpoint that can be used to check Prometheus health."),
+	)
+
+	prometheusReadyTool = mcp.NewTool("ready",
+		mcp.WithDescription("Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries.)"),
+	)
+
+	prometheusReloadTool = mcp.NewTool("reload",
+		mcp.WithDescription("Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files."),
+	)
+
+	prometheusQuitTool = mcp.NewTool("quit",
+		mcp.WithDescription("Management API endpoint that can be used to trigger a graceful shutdown of Prometheus."),
 	)
 
 	// Tools for Prometheus documentation.
@@ -699,4 +717,44 @@ func prometheusDocsSearchToolHandler(ctx context.Context, request mcp.CallToolRe
 	}
 
 	return toolRes, nil
+}
+
+func doPrometheusManagementApiCall(ctx context.Context, method, path string) (*mcp.CallToolResult, error) {
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return mcp.NewToolResultError("error getting prometheus api client from context: " + err.Error()), nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	data, err := doHttpRequest(ctx, method, client.roundtripper, client.url, path, false)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("error making Prometheus Management API call to %s: %s", path, err.Error())), nil
+	}
+
+	return mcp.NewToolResultText(strings.Trim(data, "\\n\"")), nil
+}
+
+const (
+	mgmtApiEndpointPrefix  = "/-/"
+	mgmtApiHealthyEndpoint = mgmtApiEndpointPrefix + "healthy"
+	mgmtApiReadyEndpoint   = mgmtApiEndpointPrefix + "ready"
+	mgmtApiReloadEndpoint  = mgmtApiEndpointPrefix + "reload"
+	mgmtApiQuitEndpoint    = mgmtApiEndpointPrefix + "quit"
+)
+
+func prometheusHealthyToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return doPrometheusManagementApiCall(ctx, http.MethodGet, mgmtApiHealthyEndpoint)
+}
+
+func prometheusReadyToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return doPrometheusManagementApiCall(ctx, http.MethodGet, mgmtApiReadyEndpoint)
+}
+
+func prometheusReloadToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return doPrometheusManagementApiCall(ctx, http.MethodPost, mgmtApiReloadEndpoint)
+}
+
+func prometheusQuitToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return doPrometheusManagementApiCall(ctx, http.MethodPost, mgmtApiQuitEndpoint)
 }

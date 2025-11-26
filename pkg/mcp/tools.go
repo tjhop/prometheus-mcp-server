@@ -64,6 +64,10 @@ var (
 		"list_targets":      {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":        {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
 		"wal_replay_status": {Tool: prometheusWalReplayTool, Handler: prometheusWalReplayToolHandler},
+		"healthy":           {Tool: prometheusHealthyTool, Handler: prometheusHealthyToolHandler},
+		"ready":             {Tool: prometheusReadyTool, Handler: prometheusReadyToolHandler},
+		"reload":            {Tool: prometheusReloadTool, Handler: prometheusReloadToolHandler},
+		"quit":              {Tool: prometheusQuitTool, Handler: prometheusQuitToolHandler},
 	}
 
 	// thanosToolset contains all the tools to interact with thanos as a

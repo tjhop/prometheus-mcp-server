@@ -1,13 +1,17 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/mcptest"
+	"github.com/mark3labs/mcp-go/server"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
@@ -1392,6 +1396,405 @@ func TestSeriesToolHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockAPI.SeriesFunc = tc.mockSeriesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			tc.validateResult(t, res, err)
+		})
+	}
+}
+
+func TestPrometheusManagementAPITools(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		tool                 mcp.Tool
+		method               string
+		path                 string
+		handler              server.ToolHandlerFunc
+		request              mcp.CallToolRequest
+		mockRoundTripper     *mockRoundTripper
+		validateResult       func(t *testing.T, result *mcp.CallToolResult, err error)
+		expectApiClientError bool
+	}{
+		// Healthy tool tests
+		{
+			name:    "healthy success",
+			tool:    prometheusHealthyTool,
+			handler: prometheusHealthyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiHealthyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "healthy"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString("Prometheus is Healthy.\n")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "Prometheus is Healthy.")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "healthy API error - non-200 status code",
+			tool:    prometheusHealthyTool,
+			handler: prometheusHealthyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiHealthyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "healthy"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "received non-ok HTTP status code")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "healthy API error - roundtripper error",
+			tool:    prometheusHealthyTool,
+			handler: prometheusHealthyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiHealthyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "healthy"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Error: errors.New("network unreachable"),
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "network unreachable")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "healthy no client in context",
+			tool:    prometheusHealthyTool,
+			handler: prometheusHealthyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiHealthyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "healthy"},
+			},
+			mockRoundTripper: nil,
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "error getting prometheus api client from context")
+			},
+			expectApiClientError: true,
+		},
+
+		// Ready tool tests
+		{
+			name:    "ready success",
+			tool:    prometheusReadyTool,
+			handler: prometheusReadyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiReadyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "ready"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString("Prometheus is Ready.\n")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "Prometheus is Ready.")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "ready API error - non-200 status code",
+			tool:    prometheusReadyTool,
+			handler: prometheusReadyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiReadyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "ready"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "received non-ok HTTP status code")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "ready API error - roundtripper error",
+			tool:    prometheusReadyTool,
+			handler: prometheusReadyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiReadyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "ready"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Error: errors.New("network unreachable"),
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "network unreachable")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "ready no client in context",
+			tool:    prometheusReadyTool,
+			handler: prometheusReadyToolHandler,
+			method:  http.MethodGet,
+			path:    mgmtApiReadyEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "ready"},
+			},
+			mockRoundTripper: nil,
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "error getting prometheus api client from context")
+			},
+			expectApiClientError: true,
+		},
+
+		// Reload tool tests
+		{
+			name:    "reload success",
+			tool:    prometheusReloadTool,
+			handler: prometheusReloadToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiReloadEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "reload"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString("Configuration reloaded.\n")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "Configuration reloaded.")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "reload API error - non-200 status code",
+			tool:    prometheusReloadTool,
+			handler: prometheusReloadToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiReloadEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "reload"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "received non-ok HTTP status code")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "reload API error - roundtripper error",
+			tool:    prometheusReloadTool,
+			handler: prometheusReloadToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiReloadEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "reload"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Error: errors.New("network unreachable"),
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "network unreachable")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "reload no client in context",
+			tool:    prometheusReloadTool,
+			handler: prometheusReloadToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiReloadEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "reload"},
+			},
+			mockRoundTripper: nil,
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "error getting prometheus api client from context")
+			},
+			expectApiClientError: true,
+		},
+
+		// Quit tool tests
+		{
+			name:    "quit success",
+			tool:    prometheusQuitTool,
+			handler: prometheusQuitToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiQuitEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "quit"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString("Shutting down.\n")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "Shutting down.")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "quit API error - non-200 status code",
+			tool:    prometheusQuitTool,
+			handler: prometheusQuitToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiQuitEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "quit"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Response: &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
+					Header:     make(http.Header),
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "received non-ok HTTP status code")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "quit API error - roundtripper error",
+			tool:    prometheusQuitTool,
+			handler: prometheusQuitToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiQuitEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "quit"},
+			},
+			mockRoundTripper: &mockRoundTripper{
+				Error: errors.New("network unreachable"),
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "network unreachable")
+			},
+			expectApiClientError: false,
+		},
+		{
+			name:    "quit no client in context",
+			tool:    prometheusQuitTool,
+			handler: prometheusQuitToolHandler,
+			method:  http.MethodPost,
+			path:    mgmtApiQuitEndpoint,
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params:  mcp.CallToolParams{Name: "quit"},
+			},
+			mockRoundTripper: nil,
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "error getting prometheus api client from context")
+			},
+			expectApiClientError: true,
+		},
+	}
+
+	// This is needed to satisfy the promv1.API interface that promApi embeds.
+	mockAPI := &MockPrometheusAPI{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockServer := mcptest.NewUnstartedServer(t)
+			mockServer.AddTool(tc.tool, tc.handler)
+
+			ctx := context.Background()
+			if !tc.expectApiClientError {
+				p := promApi{
+					API:          mockAPI,
+					url:          "http://localhost:9090",
+					roundtripper: http.DefaultTransport,
+				}
+
+				if tc.mockRoundTripper != nil {
+					p.roundtripper = tc.mockRoundTripper
+				}
+				ctx = addApiClientToContext(ctx, p)
+			}
+
+			err := mockServer.Start(ctx)
+			require.NoError(t, err)
+			defer mockServer.Close()
+
+			mcpClient := mockServer.Client()
+			defer mcpClient.Close()
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
 			tc.validateResult(t, res, err)
