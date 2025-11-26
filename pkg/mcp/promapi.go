@@ -2,13 +2,11 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/alpkeskin/gotoon"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -55,25 +53,6 @@ func NewAPIClient(prometheusUrl string, rt http.RoundTripper) (promv1.API, error
 	}
 
 	return client, nil
-}
-
-func toonOrJsonOutput(ctx context.Context, data any) (string, error) {
-	toonEnabled := getToonOutputFromContext(ctx)
-	if toonEnabled {
-		toonEncodedData, err := gotoon.Encode(data)
-		if err != nil {
-			return "", fmt.Errorf("error TOON encoding data: %w", err)
-		}
-
-		return toonEncodedData, nil
-	}
-
-	jsonEncodedData, err := json.Marshal(data)
-	if err != nil {
-		return "", fmt.Errorf("error marshaling to JSON: %w", err)
-	}
-
-	return string(jsonEncodedData), nil
 }
 
 func alertmanagersApiCall(ctx context.Context) (string, error) {

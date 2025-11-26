@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alpkeskin/gotoon"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,6 +64,10 @@ var (
 		"list_targets":      {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":        {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
 		"wal_replay_status": {Tool: prometheusWalReplayTool, Handler: prometheusWalReplayToolHandler},
+		"healthy":           {Tool: prometheusHealthyTool, Handler: prometheusHealthyToolHandler},
+		"ready":             {Tool: prometheusReadyTool, Handler: prometheusReadyToolHandler},
+		"reload":            {Tool: prometheusReloadTool, Handler: prometheusReloadToolHandler},
+		"quit":              {Tool: prometheusQuitTool, Handler: prometheusQuitToolHandler},
 	}
 
 	// thanosToolset contains all the tools to interact with thanos as a
@@ -76,6 +81,8 @@ var (
 	//    - alertmanagers
 	//    - config
 	//    - wal_replay_status
+	//    - reload
+	//    - quit
 	thanosToolset = map[string]server.ServerTool{
 		"build_info":       {Tool: prometheusBuildinfoTool, Handler: prometheusBuildinfoToolHandler},
 		"clean_tombstones": {Tool: prometheusCleanTombstonesTool, Handler: prometheusCleanTombstonesToolHandler},
@@ -99,6 +106,8 @@ var (
 		"list_targets":     {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":       {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
 		"list_stores":      {Tool: thanosStoresTool, Handler: thanosStoresToolHandler},
+		"healthy":          {Tool: prometheusHealthyTool, Handler: prometheusHealthyToolHandler},
+		"ready":            {Tool: prometheusReadyTool, Handler: prometheusReadyToolHandler},
 	}
 
 	// PrometheusBackends is a list of directly supported Prometheus API
@@ -112,6 +121,25 @@ var (
 )
 
 // Utility functions that are used amongst various tool related things.
+
+func toonOrJsonOutput(ctx context.Context, data any) (string, error) {
+	toonEnabled := getToonOutputFromContext(ctx)
+	if toonEnabled {
+		toonEncodedData, err := gotoon.Encode(data)
+		if err != nil {
+			return "", fmt.Errorf("error TOON encoding data: %w", err)
+		}
+
+		return toonEncodedData, nil
+	}
+
+	jsonEncodedData, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling to JSON: %w", err)
+	}
+
+	return string(jsonEncodedData), nil
+}
 
 func getToolCallResultAsString(result *mcp.CallToolResult) string {
 	var out strings.Builder
@@ -140,10 +168,10 @@ func getTextResourceContentsAsString(resourceContents []mcp.ResourceContents) st
 // use with other endpoints, such as those from 3rd party prometheus compatible
 // systems.
 //
-// This function always requests/works with JSON, and unmarshal's responses to
-// a generic interface. The structured output is then either encoded as TOON or
-// left as JSON before converting to a string for return.
-func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, requestURL string, requestPath string) (string, error) {
+// If expectJson is true, it unmarshal's responses to a generic interface. The
+// output is then either encoded as TOON or left as JSON before converting to a
+// string for return.
+func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, requestURL string, requestPath string, expectJson bool) (string, error) {
 	fullPath, err := url.JoinPath(requestURL, requestPath)
 	if err != nil {
 		return "", fmt.Errorf("error constructing URL for request: %w", err)
@@ -168,7 +196,7 @@ func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, req
 	metricApiCallDuration.With(prometheus.Labels{"target_path": requestPath}).Observe(time.Since(startTs).Seconds())
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received non-ok HTTP status code: %w", err)
+		return "", fmt.Errorf("received non-ok HTTP status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -177,9 +205,13 @@ func doHttpRequest(ctx context.Context, method string, rt http.RoundTripper, req
 	}
 
 	var data any
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return "", fmt.Errorf("error unmarshaling JSON response: %w", err)
+	if expectJson {
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			return "", fmt.Errorf("error unmarshaling JSON response: %w", err)
+		}
+	} else {
+		data = string(body)
 	}
 
 	encodedData, err := toonOrJsonOutput(ctx, data)

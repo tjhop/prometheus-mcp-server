@@ -60,6 +60,7 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `docs_search` | Search the markdown files containing official Prometheus documentation from the prometheus/docs repo |
 | `exemplars_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
+| `healthy` | Management API endpoint that can be used to check Prometheus health |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
 | `label_values` | Performs a query for the values of the given label, time range and matchers |
 | `list_alerts` | List all active alerts |
@@ -67,7 +68,10 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `list_targets` | Get overview of Prometheus target discovery |
 | `metric_metadata` | Returns metadata about metrics currently scraped by the metric name | 
 | `query` | Execute an instant query against the Prometheus datasource |
+| `quit` | Management API endpoint that can be used to trigger a graceful shutdown of Prometheus |
 | `range_query` | Execute a range query against the Prometheus datasource |
+| `ready` | Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries |
+| `reload` | Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files |
 | `runtime_info` | Get Prometheus runtime information |
 | `series` | Finds series by label matchers |
 | `targets_metadata` | Returns metadata about metrics currently scraped by the target |
@@ -144,6 +148,8 @@ Qualifications and support criteria are still under consideration, please open a
 | [`thanos`](https://thanos.io/) | `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
+| [`thanos`](https://thanos.io/) | `reload` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `quit` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 
 ### Resources
 
