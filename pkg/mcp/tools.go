@@ -81,6 +81,8 @@ var (
 	//    - alertmanagers
 	//    - config
 	//    - wal_replay_status
+	//    - reload
+	//    - quit
 	thanosToolset = map[string]server.ServerTool{
 		"build_info":       {Tool: prometheusBuildinfoTool, Handler: prometheusBuildinfoToolHandler},
 		"clean_tombstones": {Tool: prometheusCleanTombstonesTool, Handler: prometheusCleanTombstonesToolHandler},
@@ -104,6 +106,8 @@ var (
 		"list_targets":     {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":       {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
 		"list_stores":      {Tool: thanosStoresTool, Handler: thanosStoresToolHandler},
+		"healthy":          {Tool: prometheusHealthyTool, Handler: prometheusHealthyToolHandler},
+		"ready":            {Tool: prometheusReadyTool, Handler: prometheusReadyToolHandler},
 	}
 
 	// PrometheusBackends is a list of directly supported Prometheus API
