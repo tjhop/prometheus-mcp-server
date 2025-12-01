@@ -72,6 +72,23 @@ archives:
     - documentation/*
     - examples/*
     - packaging/systemd/prometheus-mcp-server.service
+mcp:
+  github:
+    name: "io.github.tjhop/{{.ProjectName}}"
+    title: "Prometheus MCP Server"
+    description: "An API-complete MCP server to manage Prometheus-compatible backends."
+    homepage: "{{.GitURL}}"
+    repository:
+      source: "github"
+      url: "{{.GitURL}}"
+    auth:
+      type: 'github{{- if isEnvSet "GITHUB_ACTIONS" }}-oidc{{ end -}}'
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    packages:
+      - registry_type: oci
+        identifier: "ghcr.io/tjhop/{{.ProjectName}}:{{ .Version }}"
+        transport:
+          type: stdio
 changelog:
   sort: asc
   filters:
