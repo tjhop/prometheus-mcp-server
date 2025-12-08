@@ -42,10 +42,24 @@ The prompt used was:
 
 The Prometheus HTTP API outputs JSON data, and the tools in this MCP server return that JSON to the LLM for processing as it's structured and well understood by LLMs.
 
+#### LLMs and Token/Context Efficiency
+
+This MCP server supports the following options which have the potential to reduce token/context usage:
+
+##### TOON Encoding
+
 If token/context usage is a concern, this MCP server also supports converting the API's JSON data to the [Token-Oriented Object Notation (TOON) format](https://github.com/toon-format/toon).
 While it is not guaranteed to reduce token usage, it is designed with token efficiency in mind.
 As noted on TOON's documentation, it excels at uniform arrays of objects; non-uniform/complex objects may still be more token-efficient in JSON.
 Real world token usage will depend on usage patterns, please review common workflows to determine if TOON output may be beneficial.
+Please see [Flags](#command-line-flags) for more information on the available flags and their corresponding environment variables.
+
+##### API Response Truncation
+
+This feature allows you to set a maximum limit on the number of lines or entries returned from the Prometheus API for, which can help in reducing the amount of data sent to the LLM.
+Setting the limit to `0` disables truncation.
+Truncation is disabled by default.
+Note that LLMs capable of handling tool request arguments can override this global truncation limit on a per-tool-call basis for supported tools.
 Please see [Flags](#command-line-flags) for more information on the available flags and their corresponding environment variables.
 
 #### Full Tool List
@@ -364,6 +378,10 @@ Flags:
       --prometheus.url="http://127.0.0.1:9090"
                                  URL of the Prometheus instance to connect to ($PROMETHEUS_MCP_SERVER_PROMETHEUS_URL)
       --prometheus.timeout=1m    Timeout for API calls to the Prometheus backend ($PROMETHEUS_MCP_SERVER_PROMETHEUS_TIMEOUT)
+      --prometheus.truncation-limit=0
+                                 If enabled, this controls the maximum query response size in number of lines/entries provided to the LLM from the API response. LLMs can
+                                 override truncation limits if needed on a per-tool-call basis via tool request arguments on supported tools. To disable truncation limits,
+                                 set to 0. ($PROMETHEUS_MCP_SERVER_PROMETHEUS_TRUNCATION_LIMIT)
       --http.config=HTTP.CONFIG  Path to config file to set Prometheus HTTP client options ($PROMETHEUS_MCP_SERVER_HTTP_CONFIG)
       --web.telemetry-path="/metrics"
                                  Path under which to expose metrics. ($PROMETHEUS_MCP_SERVER_WEB_TELEMETRY_PATH)

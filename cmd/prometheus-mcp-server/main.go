@@ -72,6 +72,13 @@ var (
 		"Timeout for API calls to the Prometheus backend",
 	).Default("1m").Duration()
 
+	flagPrometheusTruncationLimit = kingpin.Flag(
+		"prometheus.truncation-limit",
+		"If enabled, this controls the maximum query response size in number of lines/entries provided to the LLM from the API response."+
+			" LLMs can override truncation limits if needed on a per-tool-call basis via tool request arguments on supported tools."+
+			" To disable truncation limits, set to 0.",
+	).Default("0").Int()
+
 	flagHttpConfig = kingpin.Flag(
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
@@ -154,6 +161,7 @@ func main() {
 		*flagPrometheusUrl,
 		*flagPrometheusBackend,
 		*flagPrometheusTimeout,
+		*flagPrometheusTruncationLimit,
 		rt,
 		*flagEnableTsdbAdminTools,
 		*flagMcpTools,

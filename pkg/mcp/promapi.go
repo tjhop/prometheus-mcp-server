@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -160,6 +162,47 @@ type queryApiResponse struct {
 	Warnings promv1.Warnings `json:"warnings"`
 }
 
+func truncateStringByLines(s string, limit int) (string, bool) {
+	if limit <= 0 {
+		// Truncation disabled.
+		return s, false
+	}
+
+	endMarker := 0
+	for i := range limit {
+		// Start from last endMarker marker to find next newline.
+		x := strings.Index(s[endMarker:], "\n")
+		if x == -1 {
+			// No more newlines found, we're below limit, return full string.
+			return s, false
+		}
+
+		endMarker += x
+
+		// If not the last iteration, advance endMarker marker to start
+		// of next line for the next iteration.
+		if i < limit-1 {
+			endMarker++
+		}
+	}
+
+	// Truncate string by sub-slicing to the end of the last line in the
+	// limit.
+	return s[:endMarker], true
+}
+
+const (
+	truncationWarningTemplate = "\n\n" +
+		"Warning: The result was truncated because the Prometheus MCP server was started with the flag '--prometheus.truncation-limit=%d'.\n" +
+		"You may want to try optimizing your query by refining label filters or using aggregation functions to group results, where possible.\n" +
+		"If needed, several tools support a 'truncation_limit'/'limit' argument that can override the global truncation limit on a per-tool-call basis.\n" +
+		"This includes the ability to disable truncation on a tool call by setting the truncation limit to 0."
+)
+
+func displayTruncationWarning(limit int) string {
+	return fmt.Sprintf(truncationWarningTemplate, limit)
+}
+
 func queryApiCall(ctx context.Context, query string, ts time.Time) (string, error) {
 	client, err := getApiClientFromContext(ctx)
 	if err != nil {
@@ -177,8 +220,14 @@ func queryApiCall(ctx context.Context, query string, ts time.Time) (string, erro
 		return "", fmt.Errorf("error executing instant query: %w", err)
 	}
 
+	resultString := result.String()
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
 	res := queryApiResponse{
-		Result:   result.String(),
+		Result:   resultString,
 		Warnings: warnings,
 	}
 
@@ -207,8 +256,14 @@ func rangeQueryApiCall(ctx context.Context, query string, start, end time.Time, 
 		return "", fmt.Errorf("error executing range query: %w", err)
 	}
 
+	resultString := result.String()
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
 	res := queryApiResponse{
-		Result:   result.String(),
+		Result:   resultString,
 		Warnings: warnings,
 	}
 
@@ -237,7 +292,29 @@ func exemplarQueryApiCall(ctx context.Context, query string, start, end time.Tim
 		return "", fmt.Errorf("error executing exemplar query: %w", err)
 	}
 
-	encodedData, err := toonOrJsonOutput(ctx, res)
+	var resultSB strings.Builder
+	for _, r := range res {
+		b, err := json.Marshal(r)
+		if err != nil {
+			return "", fmt.Errorf("error marshaling exemplar: %w", err)
+		}
+
+		resultSB.Write(b)
+		resultSB.WriteString("\n")
+	}
+	resultString := resultSB.String()
+
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
+	queryResp := queryApiResponse{
+		Result:   resultString,
+		Warnings: nil,
+	}
+
+	encodedData, err := toonOrJsonOutput(ctx, queryResp)
 	if err != nil {
 		return "", fmt.Errorf("error encoding query response: %w", err)
 	}
@@ -268,8 +345,14 @@ func seriesApiCall(ctx context.Context, matches []string, start, end time.Time) 
 		lsets[i] = lset.String()
 	}
 
+	resultString := strings.Join(lsets, "\n")
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
 	res := queryApiResponse{
-		Result:   strings.Join(lsets, "\n"),
+		Result:   resultString,
 		Warnings: warnings,
 	}
 
@@ -298,8 +381,14 @@ func labelNamesApiCall(ctx context.Context, matches []string, start, end time.Ti
 		return "", fmt.Errorf("error getting label names: %w", err)
 	}
 
+	resultString := strings.Join(result, "\n")
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
 	res := queryApiResponse{
-		Result:   strings.Join(result, "\n"),
+		Result:   resultString,
 		Warnings: warnings,
 	}
 
@@ -333,8 +422,14 @@ func labelValuesApiCall(ctx context.Context, label string, matches []string, sta
 		lvals[i] = string(lval)
 	}
 
+	resultString := strings.Join(lvals, "\n")
+	truncationLimit := getTruncationFromContext(ctx)
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
 	res := queryApiResponse{
-		Result:   strings.Join(lvals, "\n"),
+		Result:   resultString,
 		Warnings: warnings,
 	}
 
@@ -438,6 +533,10 @@ func rulesApiCall(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("error getting rules from Prometheus: %w", err)
 	}
 
+	// TODO: @tjhop: Impose truncation limit on rules? We get back a slice
+	// of rule groups from the API, and each group has a []any containing
+	// it's recording/alerting rules. Where/how is most appropriate to
+	// truncate?
 	encodedData, err := toonOrJsonOutput(ctx, rules)
 	if err != nil {
 		return "", fmt.Errorf("error encoding rules: %w", err)
@@ -481,6 +580,25 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 
 	path := "/api/v1/targets/metadata"
 	startTs := time.Now()
+
+	truncationLimit := getTruncationFromContext(ctx)
+	if limit == "" && truncationLimit != 0 {
+		limit = strconv.Itoa(truncationLimit)
+	}
+
+	limitInt := 0
+	if limit != "" {
+		n, err := strconv.Atoi(limit)
+		if err != nil {
+			return "", fmt.Errorf("error converting limit to int: %w", err)
+		}
+		limitInt = n
+	}
+
+	if limitInt == 0 {
+		limit = ""
+	}
+
 	tm, err := client.TargetsMetadata(ctx, matchTarget, metric, limit)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
@@ -491,6 +609,10 @@ func targetsMetadataApiCall(ctx context.Context, matchTarget, metric, limit stri
 	encodedData, err := toonOrJsonOutput(ctx, tm)
 	if err != nil {
 		return "", fmt.Errorf("error encoding target metadata: %w", err)
+	}
+
+	if limitInt != 0 {
+		encodedData += displayTruncationWarning(limitInt)
 	}
 
 	return encodedData, nil
@@ -506,6 +628,25 @@ func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, e
 
 	path := "/api/v1/metadata"
 	startTs := time.Now()
+
+	truncationLimit := getTruncationFromContext(ctx)
+	if limit == "" && truncationLimit != 0 {
+		limit = strconv.Itoa(truncationLimit)
+	}
+
+	limitInt := 0
+	if limit != "" {
+		n, err := strconv.Atoi(limit)
+		if err != nil {
+			return "", fmt.Errorf("error converting limit to int: %w", err)
+		}
+		limitInt = n
+	}
+
+	if limitInt == 0 {
+		limit = ""
+	}
+
 	mm, err := client.Metadata(ctx, metric, limit)
 	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
@@ -516,6 +657,10 @@ func metricMetadataApiCall(ctx context.Context, metric, limit string) (string, e
 	encodedData, err := toonOrJsonOutput(ctx, mm)
 	if err != nil {
 		return "", fmt.Errorf("error encoding metric metadata: %w", err)
+	}
+
+	if limitInt != 0 {
+		encodedData += displayTruncationWarning(limitInt)
 	}
 
 	return encodedData, nil
