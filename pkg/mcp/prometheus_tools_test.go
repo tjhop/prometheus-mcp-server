@@ -1781,6 +1781,164 @@ func TestSeriesToolHandler(t *testing.T) {
 	}
 }
 
+func TestLabelNamesToolHandler(t *testing.T) {
+	testCases := []struct {
+		name               string
+		request            mcp.CallToolRequest
+		mockLabelNamesFunc func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error)
+		validateResult     func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":    []string{`{__name__=~"go_.*"}`},
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				return []string{"go_gc_duration_seconds", "go_goroutines"}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.JSONEq(t, `{"result":"go_gc_duration_seconds\ngo_goroutines","warnings":null}`, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				return nil, nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "invalid start_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}, "start_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
+			},
+		},
+		{
+			name: "invalid end_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}, "end_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
+			},
+		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":          []string{`{__name__=~"go_.*"}`},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				mockLabelNames := []string{"go_goroutines", "go_gc_duration_seconds"}
+				return mockLabelNames, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"go_goroutines%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":          []string{`{__name__=~"go_.*"}`},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				mockLabelNames := []string{"up", "go_goroutines", "go_gc_duration_seconds"}
+				return mockLabelNames, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedResult := `{"result":"up\ngo_goroutines\ngo_gc_duration_seconds","warnings":null}`
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(prometheusLabelNamesTool, prometheusLabelNamesToolHandler)
+
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.LabelNamesFunc = tc.mockLabelNamesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			tc.validateResult(t, res, err)
+		})
+	}
+}
+
 func TestPrometheusManagementAPITools(t *testing.T) {
 	testCases := []struct {
 		name                 string
