@@ -593,6 +593,128 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 	}
 }
 
+func TestExemplarQueryToolHandler(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		request                mcp.CallToolRequest
+		mockQueryExemplarsFunc func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error)
+		validateResult         func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "exemplar_query",
+					Arguments: map[string]any{
+						"query":      "up",
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				require.Equal(t, "up", query)
+				return []promv1.ExemplarQueryResult{}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "exemplar_query",
+					Arguments: map[string]any{"query": "up"},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				return nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "exemplar_query",
+					Arguments: map[string]any{
+						"query":            "up",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				require.Equal(t, "up", query)
+				return []promv1.ExemplarQueryResult{
+					{
+						SeriesLabels: model.LabelSet{"__name__": "up"},
+						Exemplars: []promv1.Exemplar{
+							{
+								Labels:    model.LabelSet{"trace_id": "1"},
+								Value:     1,
+								Timestamp: model.TimeFromUnix(1756142748),
+							},
+						},
+					},
+					{
+						SeriesLabels: model.LabelSet{"__name__": "up"},
+						Exemplars: []promv1.Exemplar{
+							{
+								Labels:    model.LabelSet{"trace_id": "2"},
+								Value:     0,
+								Timestamp: model.TimeFromUnix(1756143048),
+							},
+						},
+					},
+				}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := `{\"seriesLabels\":{\"__name__\":\"up\"},\"exemplars\":[{\"labels\":{\"trace_id\":\"1\"},\"value\":\"1\",\"timestamp\":1756142748}]}`
+				expectedResultWithWarning := fmt.Sprintf(`{"result":"%s%s","warnings":null}`, expectedResult, expectedWarning)
+				require.JSONEq(t, expectedResultWithWarning, getToolCallResultAsString(result))
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(prometheusExemplarQueryTool, prometheusExemplarQueryToolHandler)
+
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.QueryExemplarsFunc = tc.mockQueryExemplarsFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			tc.validateResult(t, res, err)
+		})
+	}
+}
+
 func TestCleanTombstonesToolHandler(t *testing.T) {
 	testCases := []struct {
 		name                    string
