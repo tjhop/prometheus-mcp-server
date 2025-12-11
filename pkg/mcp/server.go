@@ -208,6 +208,39 @@ func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandl
 	}
 }
 
+// Context key and middlewares for passing through response truncation limits.
+type truncationKey struct{}
+type truncationMiddlware struct {
+	limit int
+}
+
+func newTruncationMiddleware(limit int) *truncationMiddlware {
+	truncationMW := truncationMiddlware{
+		limit: limit,
+	}
+
+	return &truncationMW
+}
+
+func addTruncationToContext(ctx context.Context, limit int) context.Context {
+	return context.WithValue(ctx, truncationKey{}, limit)
+}
+
+func getTruncationFromContext(ctx context.Context) int {
+	limit, ok := ctx.Value(truncationKey{}).(int)
+	if !ok {
+		return 0
+	}
+
+	return limit
+}
+
+func (m *truncationMiddlware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return next(addTruncationToContext(ctx, m.limit), req)
+	}
+}
+
 // Middlewares for telemetry to provide more ergonomic metrics/logging.
 type telemetryMiddleware struct {
 	logger *slog.Logger
@@ -269,6 +302,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 	promUrl string,
 	prometheusBackend string,
 	prometheusTimeout time.Duration,
+	prometheusTruncationLimit int,
 	promRt http.RoundTripper,
 	enableTsdbAdminTools bool,
 	enabledTools []string,
@@ -300,6 +334,9 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
 	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
+	truncationMW := newTruncationMiddleware(prometheusTruncationLimit)
+	truncationToolMW := truncationMW.ToolMiddleware
+
 	toonOutputMW := newToonOutputMiddleware(toonEnabled)
 	toonOutputToolMW := toonOutputMW.ToolMiddleware
 
@@ -322,6 +359,7 @@ func NewServer(ctx context.Context, logger *slog.Logger,
 		server.WithHooks(hooks),
 		server.WithToolCapabilities(true),
 		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
+		server.WithToolHandlerMiddleware(truncationToolMW),
 		server.WithToolHandlerMiddleware(toonOutputToolMW),
 		server.WithToolHandlerMiddleware(docsLoaderToolMW),
 		server.WithToolHandlerMiddleware(telemetryToolMW),

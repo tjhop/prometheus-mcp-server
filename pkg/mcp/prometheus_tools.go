@@ -27,6 +27,9 @@ var (
 		mcp.WithString("timestamp",
 			mcp.Description("[Optional] Timestamp for the query to be executed at. Must be either Unix timestamp or RFC3339."),
 		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
+		),
 	)
 
 	prometheusRangeQueryTool = mcp.NewTool("range_query",
@@ -47,6 +50,9 @@ var (
 			mcp.Description("[Optional] Query resolution step width in duration format or float number of seconds."+
 				" It will be set automatically if unset."),
 		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
+		),
 	)
 
 	prometheusExemplarQueryTool = mcp.NewTool("exemplar_query",
@@ -62,6 +68,9 @@ var (
 		mcp.WithString("end_time",
 			mcp.Description("[Optional] End timestamp for the query to be executed at."+
 				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
 		),
 	)
 
@@ -79,6 +88,9 @@ var (
 			mcp.Description("[Optional] End timestamp for the query to be executed at."+
 				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
 		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
+		),
 	)
 
 	prometheusLabelNamesTool = mcp.NewTool("label_names",
@@ -93,6 +105,9 @@ var (
 		mcp.WithString("end_time",
 			mcp.Description("[Optional] End timestamp for the query to be executed at."+
 				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
 		),
 	)
 
@@ -112,6 +127,9 @@ var (
 		mcp.WithString("end_time",
 			mcp.Description("[Optional] End timestamp for the query to be executed at."+
 				" Must be either Unix timestamp or RFC3339. Defaults to current time."),
+		),
+		mcp.WithNumber("truncation_limit",
+			mcp.Description("[Optional] Truncation limit for query response in number of lines/entries."),
 		),
 	)
 
@@ -160,7 +178,7 @@ var (
 			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
 		),
 		mcp.WithString("limit",
-			mcp.Description("[Optional] Maximum number of targets to match."),
+			mcp.Description("[Optional] Maximum number of targets to match. This overrides the global truncation limit, if set."),
 		),
 	)
 
@@ -170,7 +188,7 @@ var (
 			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
 		),
 		mcp.WithString("limit",
-			mcp.Description("[Optional] Maximum number of metrics to return."),
+			mcp.Description("[Optional] Maximum number of metrics to return. This overrides the global truncation limit, if set."),
 		),
 	)
 
@@ -266,6 +284,9 @@ func prometheusQueryToolHandler(ctx context.Context, request mcp.CallToolRequest
 		ts = parsedTs
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := queryApiCall(ctx, query, ts)
 	if err != nil {
 		return mcp.NewToolResultError("failed making query api call: " + err.Error()), nil
@@ -316,6 +337,9 @@ func prometheusRangeQueryToolHandler(ctx context.Context, request mcp.CallToolRe
 		step = parsedStep
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := rangeQueryApiCall(ctx, query, startTs, endTs, step)
 	if err != nil {
 		return mcp.NewToolResultError("failed making range query api call: " + err.Error()), nil
@@ -352,6 +376,9 @@ func prometheusExemplarQueryToolHandler(ctx context.Context, request mcp.CallToo
 		startTs = parsedStartTime
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := exemplarQueryApiCall(ctx, query, startTs, endTs)
 	if err != nil {
 		return mcp.NewToolResultError("failed making exemplar api call: " + err.Error()), nil
@@ -388,6 +415,9 @@ func prometheusSeriesToolHandler(ctx context.Context, request mcp.CallToolReques
 		startTs = parsedStartTime
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := seriesApiCall(ctx, matches, startTs, endTs)
 	if err != nil {
 		return mcp.NewToolResultError("failed making series api call: " + err.Error()), nil
@@ -420,6 +450,9 @@ func prometheusLabelNamesToolHandler(ctx context.Context, request mcp.CallToolRe
 		startTs = parsedStartTime
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := labelNamesApiCall(ctx, matches, startTs, endTs)
 	if err != nil {
 		return mcp.NewToolResultError("failed making label names api call: " + err.Error()), nil
@@ -457,6 +490,9 @@ func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolR
 		startTs = parsedStartTime
 	}
 
+	truncationLimit := getTruncationFromContext(ctx)
+	argTruncationLimit := request.GetInt("truncation_limit", truncationLimit)
+	ctx = addTruncationToContext(ctx, argTruncationLimit)
 	data, err := labelValuesApiCall(ctx, label, matches, startTs, endTs)
 	if err != nil {
 		return mcp.NewToolResultError("failed making label values api call: " + err.Error()), nil

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,8 +100,67 @@ func TestQueryToolHandler(t *testing.T) {
 				require.Contains(t, getToolCallResultAsString(result), "failed to get ts from args")
 			},
 		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "query",
+					Arguments: map[string]any{
+						"query":            "vector(1)",
+						"timestamp":        "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, "vector(1)", query)
+				return model.Vector{&model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(1),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}, &model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(2),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"{} =\u003e 1 @[1756143048]%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "query",
+					Arguments: map[string]any{
+						"query":            "vector(1)",
+						"timestamp":        "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, "vector(1)", query)
+				return model.Vector{&model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(1),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.JSONEq(t, `{"result":"{} =\u003e 1 @[1756143048]","warnings":null}`, getToolCallResultAsString(result))
+			},
+		},
 	}
-
 	mockAPI := &MockPrometheusAPI{}
 	mockServer := mcptest.NewUnstartedServer(t)
 	mockServer.AddTool(prometheusQueryTool, prometheusQueryToolHandler)
@@ -230,6 +291,89 @@ func TestRangeQueryToolHandler(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, result.IsError)
 				require.Contains(t, getToolCallResultAsString(result), "failed to parse duration")
+			},
+		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "range_query",
+					Arguments: map[string]any{
+						"query":            "up",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, "up", query)
+				mockMatrix := model.Matrix{
+					&model.SampleStream{
+						Metric: model.Metric{"__name__": "up", "instance": "localhost:9090", "job": "prometheus"},
+						Values: []model.SamplePair{
+							{Timestamp: model.Time(1756142748), Value: 1},
+							{Timestamp: model.Time(1756142749), Value: 1},
+						},
+					},
+					&model.SampleStream{
+						Metric: model.Metric{"__name__": "up", "instance": "localhost:9100", "job": "node-exporter"},
+						Values: []model.SamplePair{
+							{Timestamp: model.Time(1756142748), Value: 1},
+							{Timestamp: model.Time(1756142749), Value: 1},
+						},
+					},
+				}
+				return mockMatrix, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"up{instance=\u0022localhost:9090\u0022, job=\u0022prometheus\u0022} =\u003e%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "range_query",
+					Arguments: map[string]any{
+						"query":            "up",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, "up", query)
+				mockMatrix := model.Matrix{
+					&model.SampleStream{
+						Metric: model.Metric{"__name__": "up", "instance": "localhost:9090", "job": "prometheus"},
+						Values: []model.SamplePair{
+							{Timestamp: model.Time(1756142748), Value: 1},
+							{Timestamp: model.Time(1756142749), Value: 1},
+						},
+					},
+					&model.SampleStream{
+						Metric: model.Metric{"__name__": "up", "instance": "localhost:9100", "job": "node-exporter"},
+						Values: []model.SamplePair{
+							{Timestamp: model.Time(1756142748), Value: 1},
+							{Timestamp: model.Time(1756142749), Value: 1},
+						},
+					},
+				}
+				return mockMatrix, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedResult := `{"result":"up{instance=\u0022localhost:9090\u0022, job=\u0022prometheus\u0022} =\u003e\n1 @[1756142.748]\n1 @[1756142.749]\nup{instance=\"localhost:9100\u0022, job=\u0022node-exporter\u0022} =\u003e\n1 @[1756142.748]\n1 @[1756142.749]","warnings":null}`
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
 			},
 		},
 	}
@@ -442,6 +586,128 @@ func TestDeleteSeriesToolHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockAPI.DeleteSeriesFunc = tc.mockDeleteSeriesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			tc.validateResult(t, res, err)
+		})
+	}
+}
+
+func TestExemplarQueryToolHandler(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		request                mcp.CallToolRequest
+		mockQueryExemplarsFunc func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error)
+		validateResult         func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "exemplar_query",
+					Arguments: map[string]any{
+						"query":      "up",
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				require.Equal(t, "up", query)
+				return []promv1.ExemplarQueryResult{}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "exemplar_query",
+					Arguments: map[string]any{"query": "up"},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				return nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "exemplar_query",
+					Arguments: map[string]any{
+						"query":            "up",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockQueryExemplarsFunc: func(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+				require.Equal(t, "up", query)
+				return []promv1.ExemplarQueryResult{
+					{
+						SeriesLabels: model.LabelSet{"__name__": "up"},
+						Exemplars: []promv1.Exemplar{
+							{
+								Labels:    model.LabelSet{"trace_id": "1"},
+								Value:     1,
+								Timestamp: model.TimeFromUnix(1756142748),
+							},
+						},
+					},
+					{
+						SeriesLabels: model.LabelSet{"__name__": "up"},
+						Exemplars: []promv1.Exemplar{
+							{
+								Labels:    model.LabelSet{"trace_id": "2"},
+								Value:     0,
+								Timestamp: model.TimeFromUnix(1756143048),
+							},
+						},
+					},
+				}, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := `{\"seriesLabels\":{\"__name__\":\"up\"},\"exemplars\":[{\"labels\":{\"trace_id\":\"1\"},\"value\":\"1\",\"timestamp\":1756142748}]}`
+				expectedResultWithWarning := fmt.Sprintf(`{"result":"%s%s","warnings":null}`, expectedResult, expectedWarning)
+				require.JSONEq(t, expectedResultWithWarning, getToolCallResultAsString(result))
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(prometheusExemplarQueryTool, prometheusExemplarQueryToolHandler)
+
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.QueryExemplarsFunc = tc.mockQueryExemplarsFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
 			tc.validateResult(t, res, err)
@@ -1257,6 +1523,59 @@ func TestLabelValuesToolHandler(t *testing.T) {
 				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_values",
+					Arguments: map[string]any{
+						"label":            "__name__",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockLabelValuesFunc: func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error) {
+				require.Equal(t, "__name__", label)
+				mockLabelValues := model.LabelValues{"value1", "value2", "value3"}
+				return mockLabelValues, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"value1%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_values",
+					Arguments: map[string]any{
+						"label":            "__name__",
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockLabelValuesFunc: func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error) {
+				require.Equal(t, "__name__", label)
+				mockLabelValues := model.LabelValues{"value1", "value2", "value3"}
+				return mockLabelValues, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedResult := `{"result":"value1\nvalue2\nvalue3","warnings":null}`
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
 	}
 
 	mockAPI := &MockPrometheusAPI{}
@@ -1376,6 +1695,65 @@ func TestSeriesToolHandler(t *testing.T) {
 				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
 			},
 		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "series",
+					Arguments: map[string]any{
+						"matches":          []string{"up"},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]model.LabelSet, promv1.Warnings, error) {
+				require.Equal(t, []string{"up"}, matches)
+				mockLabelSets := []model.LabelSet{
+					{"__name__": "up", "instance": "localhost:9090", "job": "prometheus"},
+					{"__name__": "up", "instance": "localhost:9100", "job": "node-exporter"},
+				}
+				return mockLabelSets, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"{__name__=\u0022up\u0022, instance=\u0022localhost:9090\u0022, job=\u0022prometheus\u0022}%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "series",
+					Arguments: map[string]any{
+						"matches":          []string{"up"},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]model.LabelSet, promv1.Warnings, error) {
+				require.Equal(t, []string{"up"}, matches)
+				mockLabelSets := []model.LabelSet{
+					{"__name__": "up", "instance": "localhost:9090", "job": "prometheus"},
+					{"__name__": "up", "instance": "localhost:9100", "job": "node-exporter"},
+				}
+				return mockLabelSets, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedResult := `{"result":"{__name__=\u0022up\u0022, instance=\u0022localhost:9090\u0022, job=\u0022prometheus\u0022}\n{__name__=\u0022up\u0022, instance=\u0022localhost:9100\u0022, job=\u0022node-exporter\u0022}","warnings":null}`
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
 	}
 
 	mockAPI := &MockPrometheusAPI{}
@@ -1396,6 +1774,164 @@ func TestSeriesToolHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockAPI.SeriesFunc = tc.mockSeriesFunc
+
+			res, err := mcpClient.CallTool(ctx, tc.request)
+			tc.validateResult(t, res, err)
+		})
+	}
+}
+
+func TestLabelNamesToolHandler(t *testing.T) {
+	testCases := []struct {
+		name               string
+		request            mcp.CallToolRequest
+		mockLabelNamesFunc func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error)
+		validateResult     func(t *testing.T, result *mcp.CallToolResult, err error)
+	}{
+		{
+			name: "success",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":    []string{`{__name__=~"go_.*"}`},
+						"start_time": "1756142748",
+						"end_time":   "1756143048",
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				return []string{"go_gc_duration_seconds", "go_goroutines"}, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				require.JSONEq(t, `{"result":"go_gc_duration_seconds\ngo_goroutines","warnings":null}`, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "API error",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				return nil, nil, errors.New("prometheus exploded")
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "prometheus exploded")
+			},
+		},
+		{
+			name: "invalid start_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}, "start_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse start_time")
+			},
+		},
+		{
+			name: "invalid end_time",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name:      "label_names",
+					Arguments: map[string]any{"matches": []string{`{__name__=~"go_.*"}`}, "end_time": "not-a-real-timestamp"},
+				},
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.True(t, result.IsError)
+				require.Contains(t, getToolCallResultAsString(result), "failed to parse end_time")
+			},
+		},
+		{
+			name: "truncation - truncated output with warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":          []string{`{__name__=~"go_.*"}`},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 1,
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				mockLabelNames := []string{"go_goroutines", "go_gc_duration_seconds"}
+				return mockLabelNames, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
+				expectedResult := fmt.Sprintf(`{"result":"go_goroutines%s","warnings":null}`, expectedWarning)
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+		{
+			name: "truncation - not truncated, no warning",
+			request: mcp.CallToolRequest{
+				Request: mcp.Request{Method: string(mcp.MethodToolsCall)},
+				Params: mcp.CallToolParams{
+					Name: "label_names",
+					Arguments: map[string]any{
+						"matches":          []string{`{__name__=~"go_.*"}`},
+						"start_time":       "1756142748",
+						"end_time":         "1756143048",
+						"truncation_limit": 0,
+					},
+				},
+			},
+			mockLabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+				require.Equal(t, []string{`{__name__=~"go_.*"}`}, matches)
+				mockLabelNames := []string{"up", "go_goroutines", "go_gc_duration_seconds"}
+				return mockLabelNames, nil, nil
+			},
+			validateResult: func(t *testing.T, result *mcp.CallToolResult, err error) {
+				require.NoError(t, err)
+				require.False(t, result.IsError)
+				expectedResult := `{"result":"up\ngo_goroutines\ngo_gc_duration_seconds","warnings":null}`
+				require.JSONEq(t, expectedResult, getToolCallResultAsString(result))
+			},
+		},
+	}
+
+	mockAPI := &MockPrometheusAPI{}
+	mockServer := mcptest.NewUnstartedServer(t)
+	mockServer.AddTool(prometheusLabelNamesTool, prometheusLabelNamesToolHandler)
+
+	promApi := promApi{
+		API: mockAPI,
+	}
+	ctx := addApiClientToContext(context.Background(), promApi)
+	err := mockServer.Start(ctx)
+	require.NoError(t, err)
+	defer mockServer.Close()
+
+	mcpClient := mockServer.Client()
+	defer mcpClient.Close()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI.LabelNamesFunc = tc.mockLabelNamesFunc
 
 			res, err := mcpClient.CallTool(ctx, tc.request)
 			tc.validateResult(t, res, err)
