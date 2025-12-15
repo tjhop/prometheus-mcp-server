@@ -89,6 +89,7 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `runtime_info` | Get Prometheus runtime information |
 | `series` | Finds series by label matchers |
 | `targets_metadata` | Returns metadata about metrics currently scraped by the target |
+| `tsdb_blocks` | Get the list of currently loaded TSDB blocks and their metadata |
 | `tsdb_stats` | Get usage and cardinality statistics from the TSDB |
 | `wal_replay_status` | Get current WAL replay status |
 
@@ -164,6 +165,7 @@ Qualifications and support criteria are still under consideration, please open a
 | [`thanos`](https://thanos.io/) | `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
 | [`thanos`](https://thanos.io/) | `reload` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 | [`thanos`](https://thanos.io/) | `quit` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| [`thanos`](https://thanos.io/) | `tsdb_blocks` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
 
 ### Resources
 
