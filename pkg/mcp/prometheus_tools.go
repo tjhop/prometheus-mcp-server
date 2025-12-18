@@ -137,6 +137,10 @@ var (
 		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
 	)
 
+	prometheusTsdbBlocksTool = mcp.NewTool("tsdb_blocks",
+		mcp.WithDescription("Get the list of currently loaded TSDB blocks and their metadata."),
+	)
+
 	prometheusListAlertsTool = mcp.NewTool("list_alerts",
 		mcp.WithDescription("List all active alerts"),
 	)
@@ -520,6 +524,14 @@ func prometheusTsdbStatsToolHandler(ctx context.Context, request mcp.CallToolReq
 	data, err := tsdbStatsApiCall(ctx)
 	if err != nil {
 		return mcp.NewToolResultError("failed making TSDB stats api call: " + err.Error()), nil
+	}
+	return mcp.NewToolResultText(data), nil
+}
+
+func prometheusTsdbBlocksToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	data, err := tsdbBlocksApiCall(ctx)
+	if err != nil {
+		return mcp.NewToolResultError("failed making TSDB blocks api call: " + err.Error()), nil
 	}
 	return mcp.NewToolResultText(data), nil
 }
