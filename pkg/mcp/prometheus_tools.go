@@ -276,7 +276,7 @@ func prometheusQueryToolHandler(ctx context.Context, request mcp.CallToolRequest
 	ts := time.Now()
 	argTs := request.GetString("timestamp", "")
 	if argTs != "" {
-		parsedTs, err := mcpProm.ParseTimestamp(argTs)
+		parsedTs, err := mcpProm.ParseTimestampOrDuration(argTs)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get ts from args: %#v", argTs)), nil
 		}
@@ -310,7 +310,7 @@ func prometheusRangeQueryToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -320,7 +320,7 @@ func prometheusRangeQueryToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
@@ -358,7 +358,7 @@ func prometheusExemplarQueryToolHandler(ctx context.Context, request mcp.CallToo
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -368,7 +368,7 @@ func prometheusExemplarQueryToolHandler(ctx context.Context, request mcp.CallToo
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
@@ -397,7 +397,7 @@ func prometheusSeriesToolHandler(ctx context.Context, request mcp.CallToolReques
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -407,7 +407,7 @@ func prometheusSeriesToolHandler(ctx context.Context, request mcp.CallToolReques
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
@@ -432,7 +432,7 @@ func prometheusLabelNamesToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -442,7 +442,7 @@ func prometheusLabelNamesToolHandler(ctx context.Context, request mcp.CallToolRe
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
@@ -472,7 +472,7 @@ func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolR
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -482,7 +482,7 @@ func prometheusLabelValuesToolHandler(ctx context.Context, request mcp.CallToolR
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
@@ -622,7 +622,7 @@ func prometheusDeleteSeriesToolHandler(ctx context.Context, request mcp.CallTool
 
 	argEndTime := request.GetString("end_time", "")
 	if argEndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestamp(argEndTime)
+		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(argEndTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse end_time %s from args: %s", argEndTime, err.Error())), nil
 		}
@@ -632,7 +632,7 @@ func prometheusDeleteSeriesToolHandler(ctx context.Context, request mcp.CallTool
 
 	argStartTime := request.GetString("start_time", "")
 	if argStartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestamp(argStartTime)
+		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(argStartTime)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse start_time %s from args: %s", argStartTime, err.Error())), nil
 		}
