@@ -60,3 +60,23 @@ func ParseTimestamp(s string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("cannot parse %q to a valid timestamp", s)
 }
+
+// ParseTimestampOrDuration provides extended timestamp support to Prometheus'
+// upstream timestamp handling. LLMs often use duration strings (eg, "1h",
+// "5m", etc). Even when tool parameter descriptions are extended to be even
+// more explicit about supported formats, I often observe LLMs attempt duration
+// strings first, fail, observe the error, try 2 or 3 more times with different
+// formats and possibly make shell calls to `date`/`python` for time handling,
+// etc. Accepting duration strings from the get go avoids a lot of LLM
+// confusion and failed/extra tool calls.
+func ParseTimestampOrDuration(s string) (time.Time, error) {
+	if t, err := ParseTimestamp(s); err == nil {
+		return t, nil
+	}
+
+	if dur, err := time.ParseDuration(s); err == nil {
+		return time.Now().Add(-dur), nil
+	}
+
+	return time.Time{}, fmt.Errorf("cannot parse %q to a valid timestamp or duration", s)
+}
