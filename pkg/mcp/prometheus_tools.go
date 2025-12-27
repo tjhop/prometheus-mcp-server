@@ -20,6 +20,8 @@ var (
 	// Tools for Prometheus API.
 	prometheusQueryTool = mcp.NewTool("query",
 		mcp.WithDescription("Execute an instant query against the Prometheus datasource"),
+		mcp.WithTitleAnnotation("Instant Query"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("Query to be executed"),
@@ -34,6 +36,8 @@ var (
 
 	prometheusRangeQueryTool = mcp.NewTool("range_query",
 		mcp.WithDescription("Execute a range query against the Prometheus datasource"),
+		mcp.WithTitleAnnotation("Range Query"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("Query to be executed"),
@@ -57,6 +61,8 @@ var (
 
 	prometheusExemplarQueryTool = mcp.NewTool("exemplar_query",
 		mcp.WithDescription("Execute a exemplar query against the Prometheus datasource"),
+		mcp.WithTitleAnnotation("Exemplar Query"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("Query to be executed"),
@@ -76,6 +82,8 @@ var (
 
 	prometheusSeriesTool = mcp.NewTool("series",
 		mcp.WithDescription("Finds series by label matches"),
+		mcp.WithTitleAnnotation("Find Series"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithArray("matches",
 			mcp.Required(),
 			mcp.Description("Series matches"),
@@ -95,6 +103,8 @@ var (
 
 	prometheusLabelNamesTool = mcp.NewTool("label_names",
 		mcp.WithDescription("Returns the unique label names present in the block in sorted order by given time range and matches"),
+		mcp.WithTitleAnnotation("Label Names"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithArray("matches",
 			mcp.Description("[Optional] Label matches"),
 		),
@@ -113,6 +123,8 @@ var (
 
 	prometheusLabelValuesTool = mcp.NewTool("label_values",
 		mcp.WithDescription("Performs a query for the values of the given label, time range and matches"),
+		mcp.WithTitleAnnotation("Label Values"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("label",
 			mcp.Required(),
 			mcp.Description("The label to query values for"),
@@ -135,42 +147,62 @@ var (
 
 	prometheusTsdbStatsTool = mcp.NewTool("tsdb_stats",
 		mcp.WithDescription("Get usage and cardinality statistics from the TSDB"),
+		mcp.WithTitleAnnotation("TSDB Stats"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusListAlertsTool = mcp.NewTool("list_alerts",
 		mcp.WithDescription("List all active alerts"),
+		mcp.WithTitleAnnotation("List Alerts"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusAlertmanagersTool = mcp.NewTool("alertmanagers",
 		mcp.WithDescription("Get overview of Prometheus Alertmanager discovery"),
+		mcp.WithTitleAnnotation("Alertmanagers"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusFlagsTool = mcp.NewTool("flags",
 		mcp.WithDescription("Get runtime flags"),
+		mcp.WithTitleAnnotation("Runtime Flags"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusBuildinfoTool = mcp.NewTool("build_info",
 		mcp.WithDescription("Get Prometheus build information"),
+		mcp.WithTitleAnnotation("Build Info"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusConfigTool = mcp.NewTool("config",
 		mcp.WithDescription("Get Prometheus configuration"),
+		mcp.WithTitleAnnotation("Configuration"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusRuntimeinfoTool = mcp.NewTool("runtime_info",
 		mcp.WithDescription("Get Prometheus runtime information"),
+		mcp.WithTitleAnnotation("Runtime Info"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusRulesTool = mcp.NewTool("list_rules",
 		mcp.WithDescription("List all alerting and recording rules that are loaded"),
+		mcp.WithTitleAnnotation("List Rules"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusTargetsTool = mcp.NewTool("list_targets",
 		mcp.WithDescription("Get overview of Prometheus target discovery"),
+		mcp.WithTitleAnnotation("List Targets"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusTargetsMetadataTool = mcp.NewTool("targets_metadata",
 		mcp.WithDescription("Returns metadata about metrics currently scraped by the target "),
+		mcp.WithTitleAnnotation("Targets Metadata"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("match_target",
 			mcp.Description("[Optional] Label selectors that match targets by their label sets. All targets are selected if left empty."),
 		),
@@ -184,6 +216,8 @@ var (
 
 	prometheusMetricMetadataTool = mcp.NewTool("metric_metadata",
 		mcp.WithDescription("Returns metadata about metrics currently scraped by the metric name."),
+		mcp.WithTitleAnnotation("Metric Metadata"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("metric",
 			mcp.Description("[Optional] A metric name to retrieve metadata for. All metric metadata is retrieved if left empty."),
 		),
@@ -194,15 +228,21 @@ var (
 
 	prometheusWalReplayTool = mcp.NewTool("wal_replay_status",
 		mcp.WithDescription("Get current WAL replay status"),
+		mcp.WithTitleAnnotation("WAL Replay Status"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	// Tools for Prometheus TSDB admin APIs.
 	prometheusCleanTombstonesTool = mcp.NewTool("clean_tombstones",
 		mcp.WithDescription("Removes the deleted data from disk and cleans up the existing tombstones"),
+		mcp.WithTitleAnnotation("Clean Tombstones"),
+		mcp.WithDestructiveHintAnnotation(true),
 	)
 
 	prometheusDeleteSeriesTool = mcp.NewTool("delete_series",
 		mcp.WithDescription("Deletes data for a selection of series in a time range"),
+		mcp.WithTitleAnnotation("Delete Series"),
+		mcp.WithDestructiveHintAnnotation(true),
 		mcp.WithArray("matches",
 			mcp.Required(),
 			mcp.Description("Series matches"),
@@ -220,6 +260,8 @@ var (
 	prometheusSnapshotTool = mcp.NewTool("snapshot",
 		mcp.WithDescription("creates a snapshot of all current data into snapshots/<datetime>-<rand>"+
 			" under the TSDB's data directory and returns the directory as response."),
+		mcp.WithTitleAnnotation("Create Snapshot"),
+		mcp.WithDestructiveHintAnnotation(true),
 		mcp.WithBoolean("skip_head",
 			mcp.Description("[Optional] Skip data present in the head block."),
 		),
@@ -228,27 +270,39 @@ var (
 	// Tools for Prometheus Management API.
 	prometheusHealthyTool = mcp.NewTool("healthy",
 		mcp.WithDescription("Management API endpoint that can be used to check Prometheus health."),
+		mcp.WithTitleAnnotation("Health Check"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusReadyTool = mcp.NewTool("ready",
 		mcp.WithDescription("Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries.)"),
+		mcp.WithTitleAnnotation("Readiness Check"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusReloadTool = mcp.NewTool("reload",
 		mcp.WithDescription("Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files."),
+		mcp.WithTitleAnnotation("Reload Config"),
+		mcp.WithDestructiveHintAnnotation(true),
 	)
 
 	prometheusQuitTool = mcp.NewTool("quit",
 		mcp.WithDescription("Management API endpoint that can be used to trigger a graceful shutdown of Prometheus."),
+		mcp.WithTitleAnnotation("Shutdown"),
+		mcp.WithDestructiveHintAnnotation(true),
 	)
 
 	// Tools for Prometheus documentation.
 	prometheusDocsListTool = mcp.NewTool("docs_list",
 		mcp.WithDescription("List of Official Prometheus Documentation Files."),
+		mcp.WithTitleAnnotation("List Documentation"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 
 	prometheusDocsReadTool = mcp.NewTool("docs_read",
 		mcp.WithDescription("Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithTitleAnnotation("Read Documentation"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("file",
 			mcp.Required(),
 			mcp.Description("The name of the documentation file to read"),
@@ -257,6 +311,8 @@ var (
 
 	prometheusDocsSearchTool = mcp.NewTool("docs_search",
 		mcp.WithDescription("Search the markdown files containing official Prometheus documentation from the prometheus/docs repo"),
+		mcp.WithTitleAnnotation("Search Documentation"),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("The query to search for"),
