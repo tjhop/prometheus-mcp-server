@@ -63,6 +63,7 @@ var (
 		"targets_metadata":  {Tool: prometheusTargetsMetadataTool, Handler: prometheusTargetsMetadataToolHandler},
 		"list_targets":      {Tool: prometheusTargetsTool, Handler: prometheusTargetsToolHandler},
 		"tsdb_stats":        {Tool: prometheusTsdbStatsTool, Handler: prometheusTsdbStatsToolHandler},
+		"tsdb_blocks":       {Tool: prometheusTsdbBlocksTool, Handler: prometheusTsdbBlocksToolHandler},
 		"wal_replay_status": {Tool: prometheusWalReplayTool, Handler: prometheusWalReplayToolHandler},
 		"healthy":           {Tool: prometheusHealthyTool, Handler: prometheusHealthyToolHandler},
 		"ready":             {Tool: prometheusReadyTool, Handler: prometheusReadyToolHandler},
@@ -83,6 +84,7 @@ var (
 	//    - wal_replay_status
 	//    - reload
 	//    - quit
+	//    - tsdb_blocks
 	thanosToolset = map[string]server.ServerTool{
 		"build_info":       {Tool: prometheusBuildinfoTool, Handler: prometheusBuildinfoToolHandler},
 		"clean_tombstones": {Tool: prometheusCleanTombstonesTool, Handler: prometheusCleanTombstonesToolHandler},

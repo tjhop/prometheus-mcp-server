@@ -157,6 +157,31 @@ func tsdbStatsApiCall(ctx context.Context) (string, error) {
 	return encodedData, nil
 }
 
+func tsdbBlocksApiCall(ctx context.Context) (string, error) {
+	client, err := getApiClientFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting API client from context: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, apiTimeout)
+	defer cancel()
+
+	path := "/api/v1/status/tsdb/blocks"
+	startTs := time.Now()
+	tsdbBlocks, err := client.TSDBBlocks(ctx)
+	metricApiCallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
+	if err != nil {
+		metricApiCallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
+		return "", fmt.Errorf("error getting tsdb blocks from Prometheus: %w", err)
+	}
+
+	encodedData, err := toonOrJsonOutput(ctx, tsdbBlocks)
+	if err != nil {
+		return "", fmt.Errorf("error encoding tsdb blocks: %w", err)
+	}
+
+	return encodedData, nil
+}
+
 type queryApiResponse struct {
 	Result   string          `json:"result"`
 	Warnings promv1.Warnings `json:"warnings"`
