@@ -10,6 +10,8 @@ import (
 var (
 	thanosStoresTool = mcp.NewTool("list_stores",
 		mcp.WithDescription("List all store API servers"),
+		mcp.WithTitleAnnotation("List Stores"),
+		mcp.WithReadOnlyHintAnnotation(true),
 	)
 )
 
