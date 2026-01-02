@@ -13,6 +13,13 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server to allow L
 
 ### Demos and Examples
 
+#### Asking Claude to Investigate Slow Queries
+
+The prompt used was:
+> querying my metrics is slow, can you help me figure out why? 
+
+[![Demo prompt to ask claude to investigate slow queries](images/claude_high_cardinality.gif)](https://asciinema.org/a/8KxZgJxrXXX2zjwwDRSP4UtqL)
+
 #### Investigate metrics produced by the MCP server itself and suggest recording rules for SLOs
 
 The prompt used was:
