@@ -79,7 +79,7 @@ Please see [Flags](#command-line-flags) for more information on the available fl
 | `docs_list` | List of Official Prometheus Documentation Files |
 | `docs_read` | Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo |
 | `docs_search` | Search the markdown files containing official Prometheus documentation from the prometheus/docs repo |
-| `exemplars_query` | Performs a query for exemplars by the given query and time range |
+| `exemplar_query` | Performs a query for exemplars by the given query and time range |
 | `flags` | Get runtime flags |
 | `healthy` | Management API endpoint that can be used to check Prometheus health |
 | `label_names` | Returns the unique label names present in the block in sorted order by given time range and matchers |
@@ -379,6 +379,10 @@ Flags:
                                  ($PROMETHEUS_MCP_SERVER_MCP_TOOLS)
       --[no-]mcp.enable-toon-output
                                  Enable Token-Oriented Object Notation (TOON) output for tools instead of JSON ($PROMETHEUS_MCP_SERVER_MCP_ENABLE_TOON_OUTPUT)
+      --[no-]mcp.enable-client-logging
+                                 Enable sending log messages to connected MCP clients as protocol notifications. When enabled, tool execution logs
+                                 are sent both to the server's primary log output and to the MCP client, allowing LLMs to observe server activity.
+                                 ($PROMETHEUS_MCP_SERVER_MCP_ENABLE_CLIENT_LOGGING)
       --prometheus.backend=PROMETHEUS.BACKEND
                                  Customize the toolset for a specific Prometheus API compatible backend. Supported backends include: prometheus,thanos
                                  ($PROMETHEUS_MCP_SERVER_PROMETHEUS_BACKEND)

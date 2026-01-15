@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
-	"github.com/mark3labs/mcp-go/server"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -42,6 +42,7 @@ var (
 	assetsDocs embed.FS
 	docsFs     fs.FS
 
+	// TODO (@tjhop): change this to an enum?
 	flagMcpTools = kingpin.Flag(
 		"mcp.tools",
 		"List of mcp tools to load."+
@@ -54,6 +55,13 @@ var (
 	flagMcpToonOutputEnabled = kingpin.Flag(
 		"mcp.enable-toon-output",
 		"Enable Token-Oriented Object Notation (TOON) output for tools instead of JSON",
+	).Default("false").Bool()
+
+	flagMcpClientLogging = kingpin.Flag(
+		"mcp.enable-client-logging",
+		"Enable sending log messages to connected MCP clients as protocol notifications."+
+			" When enabled, tool execution logs are sent both to the server's primary log output"+
+			" and to the MCP client, allowing LLMs to observe server activity.",
 	).Default("false").Bool()
 
 	flagPrometheusBackend = kingpin.Flag(
@@ -108,6 +116,7 @@ var (
 		"The name of the file to log to (file rotation policies should be configured with external tools like logrotate)",
 	).String()
 
+	// TODO (@tjhop): change this to an enum?
 	flagMcpTransport = kingpin.Flag(
 		"mcp.transport",
 		"The type of transport to use for the MCP server [`stdio`, `http`].",
@@ -157,18 +166,27 @@ func main() {
 		docsFs = docs
 	}
 
-	mcpServer := mcp.NewServer(ctx, logger,
-		*flagPrometheusUrl,
-		*flagPrometheusBackend,
-		*flagPrometheusTimeout,
-		*flagPrometheusTruncationLimit,
-		rt,
-		*flagEnableTsdbAdminTools,
-		*flagMcpTools,
-		docsFs,
-		*flagMcpToonOutputEnabled,
-	)
-	srv := setupServer(logger)
+	mcpServer, _, err := mcp.NewServer(ctx, mcp.ServerConfig{
+		Logger:                logger,
+		PrometheusURL:         *flagPrometheusUrl,
+		PrometheusBackend:     *flagPrometheusBackend,
+		PrometheusTimeout:     *flagPrometheusTimeout,
+		TruncationLimit:       *flagPrometheusTruncationLimit,
+		RoundTripper:          rt,
+		TSDBAdminToolsEnabled: *flagEnableTsdbAdminTools,
+		EnabledTools:          *flagMcpTools,
+		DocsFS:                docsFs,
+		ToonOutputEnabled:     *flagMcpToonOutputEnabled,
+		ClientLoggingEnabled:  *flagMcpClientLogging,
+	})
+	if err != nil {
+		logger.Error("Failed to create MCP server", "err", err)
+
+		// Explicitly cancel context before exit.
+		rootCtxCancel()
+		os.Exit(1) //nolint:gocritic
+	}
+	srv := initHTTPServer(logger)
 
 	var g run.Group
 	{
@@ -228,17 +246,16 @@ func main() {
 				case "stdio":
 					logger.Debug("starting MCP server", "transport", "stdio")
 
-					stdioMcpSrv := server.NewStdioServer(mcpServer)
-					server.WithErrorLogger(slog.NewLogLogger(logger.Handler(), slog.LevelError))
-					if err := stdioMcpSrv.Listen(ctx, os.Stdin, os.Stdout); err != nil {
+					if err := mcpServer.Run(ctx, &sdkmcp.StdioTransport{}); err != nil {
 						return fmt.Errorf("MCP server failed: %w", err)
 					}
 
 				case "http":
 					logger.Debug("starting MCP server", "transport", "http")
 
-					httpMcpServer := server.NewStreamableHTTPServer(mcpServer)
-					http.Handle("/mcp", httpMcpServer)
+					// TODO(@tjhop): make session idle timeout user configurable via flag?
+					httpMcpHandler := mcp.NewStreamableHTTPHandler(mcpServer, logger, 10*time.Minute)
+					http.Handle("/mcp", httpMcpHandler)
 					<-cancel
 				default:
 					return fmt.Errorf("unsupported transport type: %s", *flagMcpTransport)
@@ -255,29 +272,15 @@ func main() {
 
 	if err := g.Run(); err != nil {
 		logger.Error("Failed to run daemon goroutines", "err", err)
-		rootCtxCancel()
 
-		// Gocritic complains here because of the deferred call to
-		// cancel the root context above not getting called when
-		// os.Exit runs immediately. Valid, but we already call the
-		// cancel func in each run group's interrupt func (it's safe to
-		// call a context cancellation func multiple times, it's a noop
-		// after the first call). We also explicitly call it prior to
-		// exit here. I can refactor main to call a secondary function
-		// that returns an error to avoid conflicting with the
-		// context/cancellation lifecycle, but that becomes trickier
-		// with the main func because there's also a deferred call to
-		// close the log file if using `--log.file=$file`, and it
-		// doesn't feel worth the effort. We already know the context
-		// is cancelled by this point, just ask gocritic to be quiet.
-		//
-		//nolint:gocritic
+		// Explicitly cancel context before exit.
+		rootCtxCancel()
 		os.Exit(1)
 	}
 	logger.Info("See you next time!")
 }
 
-func setupServer(logger *slog.Logger) *http.Server {
+func initHTTPServer(logger *slog.Logger) *http.Server {
 	server := &http.Server{
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
