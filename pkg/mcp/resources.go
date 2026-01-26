@@ -4,145 +4,172 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-var (
+const (
 	resourcePrefix = "prometheus://"
-
-	// Resources.
-	listMetricsResource = mcp.NewResource(
-		resourcePrefix+"list_metrics",
-		"List metrics",
-		mcp.WithResourceDescription("List metrics available"),
-		mcp.WithMIMEType("application/json"),
-	)
-
-	targetsResource = mcp.NewResource(
-		resourcePrefix+"targets",
-		"Targets",
-		mcp.WithResourceDescription("Overview of the current state of the Prometheus target discovery"),
-		mcp.WithMIMEType("application/json"),
-	)
-
-	tsdbStatsResource = mcp.NewResource(
-		resourcePrefix+"tsdb_stats",
-		"TSDB Stats",
-		mcp.WithResourceDescription("Usage and cardinality statistics from the TSDB"),
-		mcp.WithMIMEType("application/json"),
-	)
-
-	docsListResource = mcp.NewResource(
-		resourcePrefix+"docs",
-		"List of Official Prometheus Documentation Files",
-		mcp.WithResourceDescription("List of markdown files containing the official Prometheus documentation from the prometheus/docs repo"),
-		mcp.WithMIMEType("text/plain"),
-	)
-
-	docsReadResourceTemplate = mcp.NewResourceTemplate(
-		resourcePrefix+"docs{/file*}",
-		"Official Prometheus Documentation",
-		mcp.WithTemplateDescription("Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo"),
-		mcp.WithTemplateMIMEType("text/markdown"),
-	)
 )
 
-func listMetricsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	metrics, err := labelValuesApiCall(ctx, "__name__", nil, time.Time{}, time.Time{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting metric names: %w", err)
+// Resource definitions.
+var (
+	listMetricsResource = &mcp.Resource{
+		URI:         resourcePrefix + "list_metrics",
+		Name:        "List metrics",
+		Description: "List metrics available",
+		MIMEType:    "application/json",
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      resourcePrefix + "list_metrics",
-			MIMEType: "application/json",
-			Text:     metrics,
+	targetsResource = &mcp.Resource{
+		URI:         resourcePrefix + "targets",
+		Name:        "Targets",
+		Description: "Overview of the current state of the Prometheus target discovery",
+		MIMEType:    "application/json",
+	}
+
+	tsdbStatsResource = &mcp.Resource{
+		URI:         resourcePrefix + "tsdb_stats",
+		Name:        "TSDB Stats",
+		Description: "Usage and cardinality statistics from the TSDB",
+		MIMEType:    "application/json",
+	}
+
+	docsListResource = &mcp.Resource{
+		URI:         resourcePrefix + "docs",
+		Name:        "List of Official Prometheus Documentation Files",
+		Description: "List of markdown files containing the official Prometheus documentation from the prometheus/docs repo",
+		MIMEType:    "text/plain",
+	}
+
+	docsReadResourceTemplate = &mcp.ResourceTemplate{
+		URITemplate: resourcePrefix + "docs/{file}",
+		Name:        "Official Prometheus Documentation",
+		Description: "Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo",
+		MIMEType:    "text/markdown",
+	}
+)
+
+// registerResources registers all MCP resources with the server.
+func registerResources(server *mcp.Server, container *ServerContainer) {
+	// Add static resources
+	server.AddResource(listMetricsResource, container.ListMetricsResourceHandler)
+	server.AddResource(targetsResource, container.TargetsResourceHandler)
+	server.AddResource(tsdbStatsResource, container.TsdbStatsResourceHandler)
+	server.AddResource(docsListResource, container.DocsListResourceHandler)
+
+	// Add resource template for reading specific doc files
+	server.AddResourceTemplate(docsReadResourceTemplate, container.DocsReadResourceHandler)
+}
+
+// Resource handlers
+
+// ListMetricsResourceHandler handles the list_metrics resource request.
+func (s *ServerContainer) ListMetricsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	result, err := s.labelValuesApiCall(ctx, "__name__", nil, time.Time{}, time.Time{}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metric names: %w", err)
+	}
+
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "application/json",
+				Text:     result,
+			},
 		},
 	}, nil
 }
 
-func targetsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	targets, err := targetsApiCall(ctx)
+// TargetsResourceHandler handles the targets resource request.
+func (s *ServerContainer) TargetsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	result, err := s.targetsApiCall(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error getting target info: %w", err)
+		return nil, fmt.Errorf("failed to get target info: %w", err)
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      resourcePrefix + "targets",
-			MIMEType: "application/json",
-			Text:     targets,
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "application/json",
+				Text:     result,
+			},
 		},
 	}, nil
 }
 
-func tsdbStatsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	tsdbStats, err := tsdbStatsApiCall(ctx)
+// TsdbStatsResourceHandler handles the tsdb_stats resource request.
+func (s *ServerContainer) TsdbStatsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	result, err := s.tsdbStatsApiCall(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error processing tsdb stats: %w", err)
+		return nil, fmt.Errorf("failed to process tsdb stats: %w", err)
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      resourcePrefix + "tsdb_stats",
-			MIMEType: "application/json",
-			Text:     tsdbStats,
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "application/json",
+				Text:     result,
+			},
 		},
 	}, nil
 }
 
-func docsListResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	docs, err := getDocsFsFromContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get docs: %w", err)
-	}
-
-	names, err := getDocFileNames(docs.fsys)
+// DocsListResourceHandler handles the docs list resource request.
+func (s *ServerContainer) DocsListResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	names, err := s.GetDocFileNames()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list docs: %w", err)
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      resourcePrefix + "list_docs",
-			MIMEType: "text/plain",
-			Text:     strings.Join(names, "\n"),
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "text/plain",
+				Text:     strings.Join(names, "\n"),
+			},
 		},
 	}, nil
 }
 
-func docsReadResourceTemplateHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	filenames, ok := request.Params.Arguments["file"].([]string)
-	if !ok {
-		return nil, errors.New("failed to get filenames to read from resource request")
+// DocsReadResourceHandler handles reading specific documentation files via the resource template.
+func (s *ServerContainer) DocsReadResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	// Parse the URI to properly handle URL-encoded characters.
+	u, err := url.Parse(req.Params.URI)
+	if err != nil {
+		return nil, fmt.Errorf("invalid resource URI: %w", err)
 	}
 
-	if len(filenames) < 1 {
+	// Validate scheme.
+	if u.Scheme != "prometheus" {
+		return nil, fmt.Errorf("invalid docs resource URI scheme: %s", u.Scheme)
+	}
+
+	// Get file path. Ie, prometheus://docs/file/to-read.md -> file/to-read.md.
+	filename := strings.TrimPrefix(u.Path, "/")
+	if filename == "" {
 		return nil, errors.New("at least 1 filename is required when requesting docs to read")
 	}
 
-	docs, err := getDocsFsFromContext(ctx)
+	content, err := s.GetDocFileContent(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get docs: %w", err)
+		return nil, fmt.Errorf("failed to read file from docs: %w", err)
 	}
 
-	var resourceContents []mcp.ResourceContents
-	for _, fname := range filenames {
-		content, err := getDocFileContent(docs.fsys, fname)
-		if err != nil {
-			return nil, fmt.Errorf("error reading file from docs: %w", err)
-		}
-
-		resourceContents = append(resourceContents, mcp.TextResourceContents{
-			URI:      request.Params.URI,
-			MIMEType: "text/markdown",
-			Text:     content,
-		})
-	}
-
-	return resourceContents, nil
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "text/markdown",
+				Text:     content,
+			},
+		},
+	}, nil
 }

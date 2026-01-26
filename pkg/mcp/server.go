@@ -3,30 +3,36 @@ package mcp
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/alpkeskin/gotoon"
+	"github.com/blevesearch/bleve/v2"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/config"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/config"
+	"github.com/prometheus/common/promslog"
+	"github.com/tmc/langchaingo/textsplitter"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
+	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
 )
 
-var (
-	//go:embed assets/*
-	assets embed.FS
-	instrx string
+// Embedded assets for the MCP server.
+//
+//go:embed assets/*
+var assets embed.FS
 
+// Prometheus metrics for MCP server instrumentation.
+var (
 	metricServerReady = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: prometheus.BuildFQName(metrics.MetricNamespace, "server", "ready"),
@@ -81,379 +87,471 @@ func init() {
 	)
 }
 
-// Context key and middleware for controlling tool output (`JSON` by default,
-// `TOON` if enabled at the cli).
-type toonOutputKey struct{}
-type toonOutputMiddleware struct {
-	enabled bool
+// ServerConfig holds configuration for creating a new MCP server.
+type ServerConfig struct {
+	Logger                *slog.Logger
+	PrometheusURL         string
+	PrometheusBackend     string
+	PrometheusTimeout     time.Duration
+	TruncationLimit       int
+	RoundTripper          http.RoundTripper
+	TSDBAdminToolsEnabled bool
+	EnabledTools          []string
+	DocsFS                fs.FS
+	ToonOutputEnabled     bool
+	ClientLoggingEnabled  bool
 }
 
-func newToonOutputMiddleware(enabled bool) *toonOutputMiddleware {
-	return &toonOutputMiddleware{enabled: enabled}
-}
-
-func addToonOutputToContext(ctx context.Context, enabled bool) context.Context {
-	return context.WithValue(ctx, toonOutputKey{}, enabled)
-}
-
-func getToonOutputFromContext(ctx context.Context) bool {
-	enabled, ok := ctx.Value(toonOutputKey{}).(bool)
-	if !ok {
-		return false
+// NewServer creates a new MCP server using the official Go SDK.
+func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerContainer, error) {
+	logger := cfg.Logger
+	if logger == nil {
+		logger = promslog.NewNopLogger()
 	}
 
-	return enabled
-}
-
-func (m *toonOutputMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return next(addToonOutputToContext(ctx, m.enabled), req)
-	}
-}
-
-// Context key and middlewares for embedding Prometheus' API client into a
-// context for use with tool/resource calls. Avoids the need for
-// global/external state to maintain the API client otherwise.
-type apiClientKey struct{}
-
-// promApi is a container for a request-specific prometheus api client, like
-// can happen when forwarding auth headers.
-type promApi struct {
-	// Embed the API client so that promApi container satisfies promv1.API.
-	promv1.API
-	url          string
-	roundtripper http.RoundTripper
-}
-
-type apiClientLoaderMiddleware struct {
-	prometheusUrl string
-	roundTripper  http.RoundTripper
-	defaultClient promv1.API
-	logger        *slog.Logger
-}
-
-func newApiClientLoaderMiddleware(url string, rt http.RoundTripper, log *slog.Logger) (*apiClientLoaderMiddleware, error) {
-	c, err := NewAPIClient(url, rt)
-	if err != nil {
-		return &apiClientLoaderMiddleware{}, err
-	}
-	return &apiClientLoaderMiddleware{prometheusUrl: url, roundTripper: rt, defaultClient: c, logger: log}, nil
-}
-
-func addApiClientToContext(ctx context.Context, c promv1.API) context.Context {
-	return context.WithValue(ctx, apiClientKey{}, c)
-}
-
-func getApiClientFromContext(ctx context.Context) (promApi, error) {
-	prom, ok := ctx.Value(apiClientKey{}).(promApi)
-	if !ok {
-		return promApi{}, errors.New("failed to get prometheus API client from context")
-	}
-
-	return prom, nil
-}
-
-// If there's an Authorization header, create a new RoundTripper
-// with the credentials from the header, otherwise return the
-// default client.
-func (m *apiClientLoaderMiddleware) getClient(header http.Header) (promv1.API, http.RoundTripper) {
-	authorization := header.Get("Authorization")
-	if header != nil && authorization != "" {
-		var authType, secret string
-		if strings.Contains(authorization, " ") {
-			authTypeCredentials := strings.Split(authorization, " ")
-			if len(authTypeCredentials) != 2 {
-				m.logger.Error("Invalid Authorization header, falling back to default Prometheus client", "X-Request-ID", header.Get("X-Request-ID"))
-				return m.defaultClient, m.roundTripper
-			}
-			authType = authTypeCredentials[0]
-			secret = authTypeCredentials[1]
-		} else {
-			m.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified", "X-Request-ID", header.Get("X-Request-ID"))
-			authType = "Bearer"
-			secret = authorization
-		}
-		rt := config.NewAuthorizationCredentialsRoundTripper(authType, config.NewInlineSecret(secret), m.roundTripper)
-		client, err := NewAPIClient(m.prometheusUrl, rt)
-		if err != nil {
-			m.logger.Error("Failed to create Prometheus client with credentials from request header", "err", err)
-			return m.defaultClient, m.roundTripper
-		}
-		return client, rt
-	}
-	return m.defaultClient, m.roundTripper
-}
-
-func (m *apiClientLoaderMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, rt := m.getClient(req.Header)
-		prom := promApi{
-			API:          c,
-			url:          m.prometheusUrl,
-			roundtripper: rt,
-		}
-		return next(addApiClientToContext(ctx, prom), req)
-	}
-}
-
-func (m *apiClientLoaderMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
-	return func(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		c, rt := m.getClient(req.Header)
-		prom := promApi{
-			API:          c,
-			url:          m.prometheusUrl,
-			roundtripper: rt,
-		}
-		return next(addApiClientToContext(ctx, prom), req)
-	}
-}
-
-// Context key and middlewares for passing through response truncation limits.
-type truncationKey struct{}
-type truncationMiddlware struct {
-	limit int
-}
-
-func newTruncationMiddleware(limit int) *truncationMiddlware {
-	truncationMW := truncationMiddlware{
-		limit: limit,
-	}
-
-	return &truncationMW
-}
-
-func addTruncationToContext(ctx context.Context, limit int) context.Context {
-	return context.WithValue(ctx, truncationKey{}, limit)
-}
-
-func getTruncationFromContext(ctx context.Context) int {
-	limit, ok := ctx.Value(truncationKey{}).(int)
-	if !ok {
-		return 0
-	}
-
-	return limit
-}
-
-func (m *truncationMiddlware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return next(addTruncationToContext(ctx, m.limit), req)
-	}
-}
-
-// Middlewares for telemetry to provide more ergonomic metrics/logging.
-type telemetryMiddleware struct {
-	logger *slog.Logger
-}
-
-func newTelemetryMiddleware(logger *slog.Logger) *telemetryMiddleware {
-	telemetryMW := telemetryMiddleware{
-		logger: logger,
-	}
-
-	return &telemetryMW
-}
-
-func (m *telemetryMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		name := req.Params.Name
-		args := req.GetArguments()
-		m.logger.Debug("Calling tool", "tool_name", name, "request_arguments", args)
-
-		start := time.Now()
-		toolResult, err := next(ctx, req)
-		dur := time.Since(start)
-
-		metricToolCallDuration.With(prometheus.Labels{"tool_name": name}).Observe(dur.Seconds())
-		m.logger.Debug("Finished calling tool", "tool_name", name, "request_arguments", args, "duration", dur)
-		if err != nil || toolResult.IsError {
-			// TODO: exemplars?
-			metricToolCallsFailed.With(prometheus.Labels{"tool_name": name}).Inc()
-			m.logger.Error("Failed calling tool", "tool_name", name, "result", toolResult, "error", err)
-		}
-
-		return toolResult, err
-	}
-}
-
-func (m *telemetryMiddleware) ResourceMiddleware(next server.ResourceHandlerFunc) server.ResourceHandlerFunc {
-	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		uri := request.Params.URI
-		args := request.Params.Arguments
-		m.logger.Debug("Calling resource", "resource_uri", uri, "request_arguments", args)
-
-		start := time.Now()
-		resourceResult, err := next(ctx, request)
-		dur := time.Since(start)
-
-		metricResourceCallDuration.With(prometheus.Labels{"resource_uri": uri}).Observe(dur.Seconds())
-		m.logger.Debug("Finished calling resource", "resource_uri", uri, "request_arguments", args, "duration", dur)
-		if err != nil {
-			// TODO: exemplars?
-			metricResourceCallsFailed.With(prometheus.Labels{"resource_uri": uri}).Inc()
-			m.logger.Error("Failed calling resource", "resource_uri", uri, "result", resourceResult, "error", err)
-		}
-
-		return resourceResult, err
-	}
-}
-
-func NewServer(ctx context.Context, logger *slog.Logger,
-	promUrl string,
-	prometheusBackend string,
-	prometheusTimeout time.Duration,
-	prometheusTruncationLimit int,
-	promRt http.RoundTripper,
-	enableTsdbAdminTools bool,
-	enabledTools []string,
-	docs fs.FS,
-	toonEnabled bool,
-) *server.MCPServer {
-	hooks := &server.Hooks{}
-
-	hooks.AddAfterInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest, result *mcp.InitializeResult) {
-		logger.Debug("MCP server initialized", "mcp_message", message, "mcp_result", result)
-		metricServerReady.Set(1)
-	})
-
+	// Load instructions from embedded assets.
 	coreInstructions, err := assets.ReadFile("assets/instructions.md")
 	if err != nil {
 		logger.Error("Failed to read instructions from embedded assets", "err", err)
+		coreInstructions = []byte("Prometheus MCP Server")
 	}
-	instrx = string(coreInstructions)
+	instrx := string(coreInstructions)
 
-	// TODO: allow users to specify additional instructions/context?
-
-	// Add middlewares.
-	apiTimeout = prometheusTimeout
-	logger.Info("Creating Prometheus API client", "prometheus_url", promUrl, "timeout", apiTimeout)
-	apiClientLoaderMW, err := newApiClientLoaderMiddleware(promUrl, promRt, logger)
+	container, err := newServerContainer(serverContainerConfig{
+		Logger:                logger,
+		PrometheusURL:         cfg.PrometheusURL,
+		RoundTripper:          cfg.RoundTripper,
+		TruncationLimit:       cfg.TruncationLimit,
+		ToonOutputEnabled:     cfg.ToonOutputEnabled,
+		TSDBAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,
+		APITimeout:            cfg.PrometheusTimeout,
+		DocsFS:                cfg.DocsFS,
+		ClientLoggingEnabled:  cfg.ClientLoggingEnabled,
+	})
 	if err != nil {
-		logger.Error("Failed to create default Prometheus client for MCP server", "err", err)
+		return nil, nil, err
 	}
-	apiClientLoaderToolMW := apiClientLoaderMW.ToolMiddleware
-	apiClientLoaderResourceMW := apiClientLoaderMW.ResourceMiddleware
 
-	truncationMW := newTruncationMiddleware(prometheusTruncationLimit)
-	truncationToolMW := truncationMW.ToolMiddleware
-
-	toonOutputMW := newToonOutputMiddleware(toonEnabled)
-	toonOutputToolMW := toonOutputMW.ToolMiddleware
-
-	docsLoaderMW := newDocsLoaderMiddleware(logger, docs)
-	docsLoaderToolMW := docsLoaderMW.ToolMiddleware
-	docsLoaderResourceMW := docsLoaderMW.ResourceMiddleware
-
-	telemetryMW := newTelemetryMiddleware(logger)
-	telemetryToolMW := telemetryMW.ToolMiddleware
-	telemetryResourceMW := telemetryMW.ResourceMiddleware
-
-	// Actually create MCP server.
-	mcpServer := server.NewMCPServer(
-		"prometheus-mcp-server",
-		version.Info(),
-		server.WithInstructions(instrx),
-		server.WithLogging(),
-		server.WithRecovery(),
-		server.WithResourceRecovery(),
-		server.WithHooks(hooks),
-		server.WithToolCapabilities(true),
-		server.WithToolHandlerMiddleware(apiClientLoaderToolMW),
-		server.WithToolHandlerMiddleware(truncationToolMW),
-		server.WithToolHandlerMiddleware(toonOutputToolMW),
-		server.WithToolHandlerMiddleware(docsLoaderToolMW),
-		server.WithToolHandlerMiddleware(telemetryToolMW),
-		server.WithResourceHandlerMiddleware(apiClientLoaderResourceMW),
-		server.WithResourceHandlerMiddleware(docsLoaderResourceMW),
-		server.WithResourceHandlerMiddleware(telemetryResourceMW),
-		server.WithResourceCapabilities(false, true),
+	server := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    "prometheus-mcp-server",
+			Title:   "Prometheus MCP Server",
+			Version: version.Info(),
+		},
+		&mcp.ServerOptions{
+			Instructions: instrx,
+			Logger:       logger.WithGroup("go_sdk_logger"),
+		},
 	)
 
-	// Add resources.
-	mcpServer.AddResource(listMetricsResource, listMetricsResourceHandler)
-	mcpServer.AddResource(targetsResource, targetsResourceHandler)
-	mcpServer.AddResource(tsdbStatsResource, tsdbStatsResourceHandler)
-	mcpServer.AddResource(docsListResource, docsListResourceHandler)
+	// Select the appropriate toolset based on configuration.
+	toolsetMap := getToolset(toolsetConfig{
+		enabledTools:      cfg.EnabledTools,
+		prometheusBackend: cfg.PrometheusBackend,
+		Logger:            logger,
+	})
+	toolset := toolsetToToolRegistrationSlice(toolsetMap)
 
-	// Add resource templates.
-	mcpServer.AddResourceTemplate(docsReadResourceTemplate, docsReadResourceTemplateHandler)
+	// Register tools.
+	registerTools(server, container, toolset)
 
-	// Assemble the set of tools to register with the server.
-	var toolset []server.ServerTool
+	// Register resources.
+	registerResources(server, container)
 
-	switch {
-	case len(enabledTools) == 1 && enabledTools[0] == "all":
-		logger.Info("Setting tools based on provided toolset", "toolset", "all")
-		for _, tool := range prometheusToolset {
-			toolset = append(toolset, tool)
+	// Add telemetry middleware for metrics and logging.
+	server.AddReceivingMiddleware(telemetryMiddleware(logger))
+
+	logger.Info("MCP server created",
+		"prometheus_url", cfg.PrometheusURL,
+		"tool_count", len(toolset),
+	)
+
+	return server, container, nil
+}
+
+// NewStreamableHTTPHandler creates an HTTP handler for the MCP server.
+// It wraps the handler with auth context middleware to forward Authorization headers.
+func NewStreamableHTTPHandler(server *mcp.Server, logger *slog.Logger, sessionTimeout time.Duration) http.Handler {
+	if sessionTimeout == 0 {
+		// 0 value for session timeout means that sessions never close.
+		// Set a default if unset.
+		sessionTimeout = 1 * time.Hour
+	}
+
+	handler := mcp.NewStreamableHTTPHandler(
+		func(r *http.Request) *mcp.Server {
+			return server
+		},
+		&mcp.StreamableHTTPOptions{
+			SessionTimeout: sessionTimeout,
+			Logger:         logger,
+		},
+	)
+
+	// Wrap with auth context middleware
+	return authContextMiddleware(handler)
+}
+
+// authHeaderKey is the context key for storing the Authorization header.
+type authHeaderKey struct{}
+
+// addAuthToContext adds an Authorization header value to the context.
+func addAuthToContext(ctx context.Context, auth string) context.Context {
+	return context.WithValue(ctx, authHeaderKey{}, auth)
+}
+
+// getAuthFromContext retrieves the Authorization header from the context.
+func getAuthFromContext(ctx context.Context) string {
+	if auth, ok := ctx.Value(authHeaderKey{}).(string); ok {
+		return auth
+	}
+	return ""
+}
+
+// authContextMiddleware creates an HTTP middleware that extracts the Authorization
+// header from requests and adds it to the request context.
+func authContextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			ctx = addAuthToContext(ctx, auth)
 		}
-	case len(enabledTools) == 1 && enabledTools[0] == "core":
-		logger.Info("Setting tools based on provided toolset", "toolset", "core")
-		for _, toolName := range CoreTools {
-			toolset = append(toolset, prometheusToolset[toolName])
-		}
-	default:
-		// Always include core tools.
-		enabledTools = append(enabledTools, CoreTools...)
-		slices.Sort(enabledTools)
-		enabledTools = slices.Compact(enabledTools)
-		logger.Info("Setting tools based on provided toolset", "toolset", enabledTools)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
-		for _, toolName := range enabledTools {
-			val, ok := prometheusToolset[toolName]
-			if !ok {
-				logger.Warn("Failed to find tool to register", "tool_name", toolName)
-				continue
-			}
+// ServerContainer holds all dependencies needed by tool and resource handlers.
+// It replaces the middleware-based context smuggling pattern needed with the
+// mcp-go library with explicit dependency injection.
+type ServerContainer struct {
+	// Core dependencies.
+	logger           *slog.Logger
+	defaultAPIClient promv1.API
+	prometheusURL    string
+	defaultRT        http.RoundTripper
 
-			// If it's a TSDB admin tool, check if we're allowed to
-			// run them.
-			if slices.Contains(PrometheusTsdbAdminTools, toolName) {
-				if !enableTsdbAdminTools {
-					logger.Error("Failed to add TSDB admin tool to toolset",
-						"err", errors.New("TSDB admin tools must be enabled with `--dangerous.enable-tsdb-admin-tools` flag"),
-						"tool_name", toolName,
-					)
-					continue
-				}
+	// Configuration values the MCP server needs to use/cares about.
+	truncationLimit       int
+	toonOutputEnabled     bool
+	tsdbAdminToolsEnabled bool
+	apiTimeout            time.Duration
+	clientLoggingEnabled  bool
 
-				logger.Warn("Adding TSDB admin tool to toolset for registration", "tool_name", toolName)
-				toolset = append(toolset, val)
-				continue
-			}
+	// Docs and search index.
+	docsFS          fs.FS
+	docsSearchIndex bleve.Index
+	docsChunks      []chunk
+}
 
-			logger.Debug("Adding tool to toolset for registration", "tool_name", toolName)
-			toolset = append(toolset, val)
+// serverContainerConfig holds configuration for creating a ServerContainer.
+type serverContainerConfig struct {
+	Logger                *slog.Logger
+	PrometheusURL         string
+	RoundTripper          http.RoundTripper
+	TruncationLimit       int
+	ToonOutputEnabled     bool
+	TSDBAdminToolsEnabled bool
+	APITimeout            time.Duration
+	DocsFS                fs.FS
+	ClientLoggingEnabled  bool
+}
+
+// newServerContainer creates a new ServerContainer with the given configuration.
+func newServerContainer(cfg serverContainerConfig) (*ServerContainer, error) {
+	client, err := mcpProm.NewAPIClient(cfg.PrometheusURL, cfg.RoundTripper)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create default API client: %w", err)
+	}
+
+	container := &ServerContainer{
+		logger:                cfg.Logger,
+		defaultAPIClient:      client,
+		prometheusURL:         cfg.PrometheusURL,
+		defaultRT:             cfg.RoundTripper,
+		truncationLimit:       cfg.TruncationLimit,
+		toonOutputEnabled:     cfg.ToonOutputEnabled,
+		tsdbAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,
+		apiTimeout:            cfg.APITimeout,
+		docsFS:                cfg.DocsFS,
+		clientLoggingEnabled:  cfg.ClientLoggingEnabled,
+	}
+
+	// Initialize docs search if FS is provided.
+	if cfg.DocsFS != nil {
+		if err := container.initDocsSearch(); err != nil {
+			cfg.Logger.Error("Failed to initialize docs search", "err", err)
+			// Non-fatal - continue without docs search.
 		}
 	}
 
-	// If a specific prometheus compatible backend was provided, that
-	// overrides defined tools, since dynamic tool registration is specific
-	// to prometheus tools and they may not be compatible with all
-	// prometheus backends.
-	backend := strings.ToLower(prometheusBackend)
-	switch backend {
-	case "": // If no backend entered, keep loaded toolset.
-	case "prometheus":
-		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
-		var backendToolset []server.ServerTool
-		for _, tool := range prometheusToolset {
-			backendToolset = append(backendToolset, tool)
+	return container, nil
+}
+
+// GetAPIClient returns a Prometheus API client, optionally with auth from context.
+// If an Authorization header is present in the context, a new client with those
+// credentials is created. Otherwise, the default client is returned.
+func (s *ServerContainer) GetAPIClient(ctx context.Context) (promv1.API, http.RoundTripper) {
+	auth := getAuthFromContext(ctx)
+	if auth != "" {
+		client, rt := s.createClientWithAuth(auth)
+		if client != nil {
+			return client, rt
 		}
-		toolset = backendToolset
-	case "thanos":
-		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
-		var backendToolset []server.ServerTool
-		for _, tool := range thanosToolset {
-			backendToolset = append(backendToolset, tool)
-		}
-		toolset = backendToolset
-	default:
-		logger.Warn("Prometheus backend does not have custom tool support, keeping the existing loaded toolset", "backend", backend, "toolset", enabledTools)
+		s.logger.Warn("Failed to create client with provided auth, falling back to default client")
 	}
 
-	// Add tools.
-	mcpServer.AddTools(toolset...)
+	return s.defaultAPIClient, s.defaultRT
+}
 
-	return mcpServer
+// createClientWithAuth creates a new API client with the given Authorization header.
+func (s *ServerContainer) createClientWithAuth(authorization string) (promv1.API, http.RoundTripper) {
+	var authType, secret string
+	if strings.Contains(authorization, " ") {
+		parts := strings.SplitN(authorization, " ", 2)
+		authType = parts[0]
+		secret = parts[1]
+	} else {
+		s.logger.Debug("Assuming Bearer auth type for Authorization header with no type specified")
+		authType = "Bearer"
+		secret = authorization
+	}
+
+	rt := config.NewAuthorizationCredentialsRoundTripper(authType, config.NewInlineSecret(secret), s.defaultRT)
+	client, err := mcpProm.NewAPIClient(s.prometheusURL, rt)
+	if err != nil {
+		s.logger.Error("Failed to create API client with credentials", "err", err)
+		return nil, nil
+	}
+	return client, rt
+}
+
+// FormatOutput encodes data as JSON or TOON based on configuration.
+func (s *ServerContainer) FormatOutput(data any) (string, error) {
+	if s.toonOutputEnabled {
+		toonEncoded, err := gotoon.Encode(data)
+		if err != nil {
+			return "", fmt.Errorf("failed to TOON encode data: %w", err)
+		}
+
+		return toonEncoded, nil
+	}
+
+	jsonEncoded, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to JSON marshal data: %w", err)
+	}
+	return string(jsonEncoded), nil
+}
+
+// GetEffectiveTruncationLimit returns the per-call limit if set, otherwise the global limit.
+func (s *ServerContainer) GetEffectiveTruncationLimit(perCallLimit int) int {
+	// Negative means the tool wants to override and disable truncation.
+	if perCallLimit < 0 {
+		return 0
+	}
+
+	// perCallLimit set means we're asking for a specific truncation limit.
+	if perCallLimit > 0 {
+		return perCallLimit
+	}
+
+	// Otherwise, return global truncation limit.
+	return s.truncationLimit
+}
+
+// Docs search methods
+
+// errDocsNotProvided is returned when docs filesystem is not configured.
+var errDocsNotProvided = errors.New("docs filesystem not provided")
+
+// initDocsSearch initializes the docs search index by chunking and indexing all docs.
+func (s *ServerContainer) initDocsSearch() error {
+	if s.docsFS == nil {
+		return errDocsNotProvided
+	}
+
+	splitter := textsplitter.NewMarkdownTextSplitter(
+		textsplitter.WithAllowedSpecial([]string{"all"}),
+		textsplitter.WithChunkOverlap(docChunkOverlap),
+		textsplitter.WithChunkSize(docChunkSize),
+		textsplitter.WithCodeBlocks(true),
+		textsplitter.WithHeadingHierarchy(true),
+		textsplitter.WithJoinTableRows(true),
+		textsplitter.WithKeepSeparator(true),
+		textsplitter.WithReferenceLinks(true),
+	)
+
+	docFiles, err := getDocFileNames(s.docsFS)
+	if err != nil {
+		return fmt.Errorf("failed listing docs files: %w", err)
+	}
+
+	bleve.SetLog(slog.NewLogLogger(s.logger.Handler(), slog.LevelDebug))
+	mapping := bleve.NewIndexMapping()
+	searchIndex, err := bleve.NewMemOnly(mapping)
+	if err != nil {
+		return fmt.Errorf("failed to create in-memory search index: %w", err)
+	}
+
+	var chunks []chunk
+	for _, fn := range docFiles {
+		content, err := getDocFileContent(s.docsFS, fn)
+		if err != nil {
+			s.logger.Error("Failed reading doc file", "file", fn, "err", err)
+			continue
+		}
+
+		textChunks, err := splitter.SplitText(content)
+		if err != nil {
+			s.logger.Error("Failed to split doc into chunks", "file", fn, "err", err)
+			continue
+		}
+
+		for i, c := range textChunks {
+			newChunk := chunk{
+				Id:      i + 1,
+				Name:    fn,
+				Content: c,
+			}
+			chunks = append(chunks, newChunk)
+			if err := searchIndex.Index(newChunk.ID(), newChunk); err != nil {
+				s.logger.Error("Failed to index chunk", "chunk_id", newChunk.ID(), "err", err)
+				continue
+			}
+		}
+	}
+
+	s.docsChunks = chunks
+	s.docsSearchIndex = searchIndex
+	return nil
+}
+
+// SearchDocs searches the docs index and returns matching chunk IDs.
+func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
+	if s.docsSearchIndex == nil {
+		return nil, errors.New("docs search index not initialized")
+	}
+
+	if limit < 1 {
+		limit = defaultDocsSearchLimit
+	}
+
+	query := bleve.NewMatchQuery(q)
+	query.Fuzziness = 1
+
+	req := bleve.NewSearchRequest(query)
+	req.Size = limit
+	req.Highlight = bleve.NewHighlight()
+	req.Fields = []string{"*"}
+
+	searchRes, err := s.docsSearchIndex.Search(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search docs index: %w", err)
+	}
+
+	hits := searchRes.Hits
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+
+	var result []string
+	for _, hit := range hits {
+		result = append(result, hit.ID)
+	}
+	return result, nil
+}
+
+// GetDocFileNames returns a list of all doc file names.
+func (s *ServerContainer) GetDocFileNames() ([]string, error) {
+	if s.docsFS == nil {
+		return nil, errDocsNotProvided
+	}
+	return getDocFileNames(s.docsFS)
+}
+
+// GetDocFileContent returns the content of a doc file.
+func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
+	if s.docsFS == nil {
+		return "", errDocsNotProvided
+	}
+	return getDocFileContent(s.docsFS, path)
+}
+
+// Logging helper methods
+
+// GetToolLogger returns an slog.Logger for use within tool handlers.
+// If client logging is enabled, returns a chained logger that logs to both
+// the application's log output and sends notifications to the MCP client.
+// Otherwise, returns the server's local logger.
+//
+// The tool name is extracted from the request and used as the logger name
+// in MCP client notifications. If input is provided (non-nil), it will be
+// added to the logger context. Input types should implement slog.LogValuer
+// for structured logging.
+//
+// This is to supplement the standard logging that every tool gets through the
+// telemtry middleware. Since this can also send logs to the MCP client via
+// protocol notifications, it's intended to be used for important contextual
+// messages that should notify the user and log as appropriate. Currently, it
+// is primarily used by the TSDB Admin tools to do extra logging around admin
+// tool calls.
+func (s *ServerContainer) GetToolLogger(req *mcp.CallToolRequest, input any) *slog.Logger {
+	logger := s.logger
+	if s.clientLoggingEnabled {
+		logger = getChainedLogger(logger, req, req.Params.Name)
+	}
+
+	if input != nil {
+		logger = logger.With(slog.Any("input", input))
+	}
+
+	return logger
+}
+
+// MCP result helper methods
+
+// newToolTextResult creates a new CallToolResult with text content.
+func newToolTextResult(text string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: text}},
+	}
+}
+
+// newToolErrorResult creates a new CallToolResult indicating an error. We
+// ensure that `IsError` is set enabled so clients know it's an error.
+//
+// Because the telemetry middleware automatically checks the `IsError` field,
+// all calls to `newToolErrorResult` result in the tool call failure metric
+// incrementing, as well as an error log being automatically generated for the
+// tool call failure.
+func newToolErrorResult(err string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: err}},
+		IsError: true,
+	}
+}
+
+// embedResourceContentsInToolResult takes a ReadResourceResult and embeds it
+// into a CallToolResult by appending a new embedded resource onto the
+// CallToolResult's contents. It returns the modified CallToolResult.  This
+// allows tools to reuse resource handlers and return their results as embedded
+// resources.
+func embedResourceContentsInToolResult(resourceResult *mcp.ReadResourceResult, toolResult *mcp.CallToolResult) *mcp.CallToolResult {
+	embeddedRes := make([]mcp.Content, len(resourceResult.Contents))
+	for i, r := range resourceResult.Contents {
+		embeddedRes[i] = &mcp.EmbeddedResource{Resource: r}
+	}
+
+	toolResult.Content = append(toolResult.Content, embeddedRes...)
+	return toolResult
+}
+
+// concatResourceContents concatenates Contents from multiple ReadResourceResults into a single slice.
+// This allows callers to use the combined contents as needed (e.g., as embedded resources in a tool result).
+func concatResourceContents(results ...*mcp.ReadResourceResult) []*mcp.ResourceContents {
+	var allContents []*mcp.ResourceContents
+	for _, result := range results {
+		allContents = append(allContents, result.Contents...)
+	}
+	return allContents
 }
