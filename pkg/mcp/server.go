@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alpkeskin/gotoon"
@@ -30,6 +31,10 @@ import (
 //
 //go:embed assets/*
 var assets embed.FS
+
+// bleveSetLogOnce ensures the Bleve logger is only configured once,
+// preventing race conditions when multiple goroutines call buildDocsState.
+var bleveSetLogOnce sync.Once
 
 // Prometheus metrics for MCP server instrumentation.
 var (
@@ -386,7 +391,11 @@ func (s *ServerContainer) initDocsSearch() error {
 		return fmt.Errorf("failed listing docs files: %w", err)
 	}
 
-	bleve.SetLog(slog.NewLogLogger(s.logger.Handler(), slog.LevelDebug))
+	// Configure bleve logger only once, avoids race conditions if building
+	// multiple docs states concurrently.
+	bleveSetLogOnce.Do(func() {
+		bleve.SetLog(slog.NewLogLogger(s.logger.Handler(), slog.LevelDebug))
+	})
 	mapping := bleve.NewIndexMapping()
 	searchIndex, err := bleve.NewMemOnly(mapping)
 	if err != nil {

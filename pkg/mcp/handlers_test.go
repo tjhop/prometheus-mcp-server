@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -74,6 +76,8 @@ func newMockHTTPResponse(statusCode int, body string) *http.Response {
 }
 
 func TestQueryHandler(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -253,19 +257,15 @@ func TestQueryHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create mock API and container
 			mockAPI := &MockPrometheusAPI{QueryFunc: tc.mockQueryFunc}
 			container := newTestContainer(mockAPI)
 			container.truncationLimit = tc.globalLimit
 
-			// Create test server and register the tool
 			ts := mcptest.NewTestServer(t)
 			mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
 
-			// Call the tool
 			result, err := ts.CallTool(ts.Context(), "query", tc.args)
 
-			// Validate
 			resultText := mcptest.GetResultText(result)
 			isError := result != nil && result.IsError
 			tc.validateResult(t, resultText, isError, err)
@@ -274,6 +274,8 @@ func TestQueryHandler(t *testing.T) {
 }
 
 func TestRangeQueryHandler(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -367,7 +369,7 @@ func TestRangeQueryHandler(t *testing.T) {
 			args: map[string]any{
 				"query":      "up",
 				"start_time": "1756140000",
-				"end_time":   "1756143600", // 3600 seconds (1 hour) apart
+				"end_time":   "1756143600",
 			},
 			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
 				require.Equal(t, "up", query)
@@ -408,6 +410,7 @@ func TestRangeQueryHandler(t *testing.T) {
 }
 
 func TestSeriesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -499,6 +502,7 @@ func TestSeriesHandler(t *testing.T) {
 }
 
 func TestLabelValuesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                string
 		args                map[string]any
@@ -589,6 +593,7 @@ func TestLabelValuesHandler(t *testing.T) {
 }
 
 func TestLabelNamesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name               string
 		args               map[string]any
@@ -658,6 +663,7 @@ func TestLabelNamesHandler(t *testing.T) {
 }
 
 func TestExemplarQueryHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                   string
 		args                   map[string]any
@@ -760,6 +766,7 @@ func TestExemplarQueryHandler(t *testing.T) {
 }
 
 func TestMetricMetadataHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name             string
 		args             map[string]any
@@ -883,6 +890,7 @@ func TestMetricMetadataHandler(t *testing.T) {
 }
 
 func TestTargetsMetadataHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                    string
 		args                    map[string]any
@@ -968,6 +976,7 @@ func TestTargetsMetadataHandler(t *testing.T) {
 }
 
 func TestListTargetsHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name            string
 		args            map[string]any
@@ -1030,6 +1039,7 @@ func TestListTargetsHandler(t *testing.T) {
 }
 
 func TestListRulesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1094,6 +1104,7 @@ func TestListRulesHandler(t *testing.T) {
 }
 
 func TestRuntimeInfoHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                string
 		args                map[string]any
@@ -1154,6 +1165,7 @@ func TestRuntimeInfoHandler(t *testing.T) {
 }
 
 func TestConfigHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1206,6 +1218,7 @@ func TestConfigHandler(t *testing.T) {
 }
 
 func TestBuildInfoHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name              string
 		args              map[string]any
@@ -1264,6 +1277,7 @@ func TestBuildInfoHandler(t *testing.T) {
 }
 
 func TestFlagsHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1319,6 +1333,7 @@ func TestFlagsHandler(t *testing.T) {
 }
 
 func TestListAlertsHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1378,6 +1393,7 @@ func TestListAlertsHandler(t *testing.T) {
 }
 
 func TestAlertmanagersHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                  string
 		args                  map[string]any
@@ -1435,6 +1451,7 @@ func TestAlertmanagersHandler(t *testing.T) {
 }
 
 func TestTsdbStatsHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1506,6 +1523,7 @@ func TestTsdbStatsHandler(t *testing.T) {
 }
 
 func TestWalReplayHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name              string
 		args              map[string]any
@@ -1562,6 +1580,7 @@ func TestWalReplayHandler(t *testing.T) {
 // TSDB Admin Handler Tests
 
 func TestCleanTombstonesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                    string
 		args                    map[string]any
@@ -1626,6 +1645,7 @@ func TestCleanTombstonesHandler(t *testing.T) {
 }
 
 func TestDeleteSeriesHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                 string
 		args                 map[string]any
@@ -1763,6 +1783,7 @@ func TestDeleteSeriesHandler(t *testing.T) {
 }
 
 func TestSnapshotHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name              string
 		args              map[string]any
@@ -1850,6 +1871,7 @@ func TestSnapshotHandler(t *testing.T) {
 // Management API Handler Tests
 
 func TestHealthyHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1916,6 +1938,7 @@ func TestHealthyHandler(t *testing.T) {
 }
 
 func TestReadyHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -1982,6 +2005,7 @@ func TestReadyHandler(t *testing.T) {
 }
 
 func TestReloadHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -2047,6 +2071,7 @@ func TestReloadHandler(t *testing.T) {
 }
 
 func TestQuitHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -2144,6 +2169,7 @@ func newTestContainerWithDocs(mockAPI *MockPrometheusAPI, docsFS fs.FS) (*Server
 }
 
 func TestDocsListHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		docsFS         fs.FS
@@ -2188,7 +2214,6 @@ func TestDocsListHandler(t *testing.T) {
 
 			ts := mcptest.NewTestServer(t)
 			mcptest.AddTool(ts, docsListToolDef, container.DocsListHandler)
-			// Register resource template for tests that need it
 			ts.AddResourceTemplate(docsReadResourceTemplate, container.DocsReadResourceHandler)
 			ts.AddResource(docsListResource, container.DocsListResourceHandler)
 
@@ -2202,6 +2227,7 @@ func TestDocsListHandler(t *testing.T) {
 }
 
 func TestDocsReadHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -2271,11 +2297,12 @@ func TestDocsReadHandler(t *testing.T) {
 }
 
 func TestDocsSearchHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
 		docsFS         fs.FS
-		skipDocsInit   bool // When true, sets docsFS but skips search index initialization.
+		skipDocsInit   bool
 		validateResult func(t *testing.T, result string, isError bool, err error)
 	}{
 		{
@@ -2362,6 +2389,7 @@ func TestDocsSearchHandler(t *testing.T) {
 // Thanos Handler Tests
 
 func TestThanosStoresHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		args           map[string]any
@@ -2418,6 +2446,7 @@ func TestThanosStoresHandler(t *testing.T) {
 // Infrastructure / Helper Tests
 
 func TestGetEffectiveTruncationLimit(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name         string
 		globalLimit  int
@@ -2469,6 +2498,7 @@ func TestGetEffectiveTruncationLimit(t *testing.T) {
 }
 
 func TestFormatOutput(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		toonEnabled bool
@@ -2521,6 +2551,7 @@ func TestFormatOutput(t *testing.T) {
 }
 
 func TestGetAPIClient(t *testing.T) {
+	t.Parallel()
 	t.Run("returns default client when no auth in context", func(t *testing.T) {
 		mockAPI := &MockPrometheusAPI{}
 		container := &ServerContainer{
@@ -2556,6 +2587,7 @@ func TestGetAPIClient(t *testing.T) {
 }
 
 func TestTruncateStringByLines(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		input          string
@@ -2617,6 +2649,7 @@ func TestTruncateStringByLines(t *testing.T) {
 }
 
 func TestListMetricsResourceHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name            string
 		mockLabelValues func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error)
@@ -2664,6 +2697,7 @@ func TestListMetricsResourceHandler(t *testing.T) {
 }
 
 func TestTargetsResourceHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name            string
 		mockTargetsFunc func(ctx context.Context) (promv1.TargetsResult, error)
@@ -2718,6 +2752,7 @@ func TestTargetsResourceHandler(t *testing.T) {
 }
 
 func TestTsdbStatsResourceHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		mockTSDBFunc   func(ctx context.Context, opts ...promv1.Option) (promv1.TSDBResult, error)
@@ -2773,6 +2808,7 @@ func TestTsdbStatsResourceHandler(t *testing.T) {
 }
 
 func TestDocsListResourceHandler(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		docsFS         fs.FS
@@ -2821,10 +2857,10 @@ func TestDocsListResourceHandler(t *testing.T) {
 }
 
 func TestDocsReadResourceHandler(t *testing.T) {
+	t.Parallel()
 	// TestDocsReadResourceHandler tests the docs read resource handler directly.
-	// Note: We test the handler directly because MCP SDK resource template matching
-	// has limitations with nested paths like "querying/basics.md". The tool-based
-	// docs_read tests already cover the same functionality through the MCP protocol.
+	// Note: We test the handler directly because the tool-based docs_read
+	// tests already cover the same functionality through the MCP protocol.
 	testCases := []struct {
 		name           string
 		uri            string
@@ -2877,8 +2913,6 @@ func TestDocsReadResourceHandler(t *testing.T) {
 			container, err := newTestContainerWithDocs(&MockPrometheusAPI{}, tc.docsFS)
 			require.NoError(t, err)
 
-			// Test the handler directly since MCP SDK resource template matching
-			// has limitations with nested paths in the URI.
 			ctx := context.Background()
 			req := &mcpsdk.ReadResourceRequest{
 				Params: &mcpsdk.ReadResourceParams{
@@ -2888,6 +2922,707 @@ func TestDocsReadResourceHandler(t *testing.T) {
 
 			result, handlerErr := container.DocsReadResourceHandler(ctx, req)
 			tc.validateResult(t, result, handlerErr)
+		})
+	}
+}
+
+// TestQueryHandlerTimeFormats tests that the query handler correctly parses
+// various timestamp formats that LLMs commonly use.
+func TestQueryHandlerTimeFormats(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		timestamp     string
+		expectError   bool
+		errorContains string
+		validateTime  func(t *testing.T, ts time.Time)
+	}{
+		{
+			name:        "Unix timestamp seconds",
+			timestamp:   "1756143048",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				// 1756143048 is a Unix timestamp.
+				expected := time.Unix(1756143048, 0).UTC()
+				require.Equal(t, expected.Unix(), ts.Unix())
+			},
+		},
+		{
+			name:        "Unix timestamp float with fractional seconds",
+			timestamp:   "1756143048.123",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				// Should be approximately 1756143048 seconds + 123ms.
+				require.Equal(t, int64(1756143048), ts.Unix())
+				// Allow some tolerance for floating point rounding.
+				require.InDelta(t, 123000000, ts.Nanosecond(), 1000000)
+			},
+		},
+		{
+			name:        "RFC3339 format",
+			timestamp:   "2025-01-15T12:00:00Z",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				expected, _ := time.Parse(time.RFC3339, "2025-01-15T12:00:00Z")
+				require.True(t, expected.Equal(ts))
+			},
+		},
+		{
+			name:        "RFC3339 with positive timezone offset",
+			timestamp:   "2025-01-15T12:00:00+05:00",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				expected, _ := time.Parse(time.RFC3339, "2025-01-15T12:00:00+05:00")
+				require.True(t, expected.Equal(ts))
+			},
+		},
+		{
+			name:        "RFC3339 with negative timezone offset",
+			timestamp:   "2025-01-15T12:00:00-08:00",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				expected, _ := time.Parse(time.RFC3339, "2025-01-15T12:00:00-08:00")
+				require.True(t, expected.Equal(ts))
+			},
+		},
+		{
+			name:        "RFC3339Nano with nanoseconds",
+			timestamp:   "2025-01-15T12:00:00.123456789Z",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				expected, _ := time.Parse(time.RFC3339Nano, "2025-01-15T12:00:00.123456789Z")
+				require.True(t, expected.Equal(ts))
+			},
+		},
+		{
+			name:        "Duration 5m (relative to now)",
+			timestamp:   "5m",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				// Should be approximately 5 minutes ago.
+				fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+				require.InDelta(t, fiveMinutesAgo.Unix(), ts.Unix(), 2)
+			},
+		},
+		{
+			name:        "Duration 1h (relative to now)",
+			timestamp:   "1h",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				oneHourAgo := time.Now().Add(-1 * time.Hour)
+				require.InDelta(t, oneHourAgo.Unix(), ts.Unix(), 2)
+			},
+		},
+		{
+			name:        "Duration 30s (relative to now)",
+			timestamp:   "30s",
+			expectError: false,
+			validateTime: func(t *testing.T, ts time.Time) {
+				thirtySecondsAgo := time.Now().Add(-30 * time.Second)
+				require.InDelta(t, thirtySecondsAgo.Unix(), ts.Unix(), 2)
+			},
+		},
+		{
+			name:        "Invalid - empty string",
+			timestamp:   "",
+			expectError: false, // Empty timestamp means "now", not an error.
+			validateTime: func(t *testing.T, ts time.Time) {
+				// When no timestamp is provided, it defaults to now.
+				require.InDelta(t, time.Now().Unix(), ts.Unix(), 2)
+			},
+		},
+		{
+			name:          "Invalid - text like 'yesterday'",
+			timestamp:     "yesterday",
+			expectError:   true,
+			errorContains: "failed to parse timestamp",
+		},
+		{
+			name:          "Invalid - malformed date",
+			timestamp:     "2025-13-45",
+			expectError:   true,
+			errorContains: "failed to parse timestamp",
+		},
+		{
+			name:          "Invalid - random string",
+			timestamp:     "not-a-timestamp-at-all",
+			expectError:   true,
+			errorContains: "failed to parse timestamp",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var capturedTime time.Time
+
+			mockAPI := &MockPrometheusAPI{
+				QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+					capturedTime = ts
+					return model.Vector{&model.Sample{
+						Metric:    model.Metric{},
+						Value:     model.SampleValue(1),
+						Timestamp: model.TimeFromUnix(ts.Unix()),
+					}}, nil, nil
+				},
+			}
+			container := newTestContainer(mockAPI)
+
+			ts := mcptest.NewTestServer(t)
+			mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+
+			args := map[string]any{
+				"query": "up",
+			}
+			if tc.timestamp != "" {
+				args["timestamp"] = tc.timestamp
+			}
+
+			result, err := ts.CallTool(ts.Context(), "query", args)
+			resultText := mcptest.GetResultText(result)
+			isError := result != nil && result.IsError
+
+			if tc.expectError {
+				require.True(t, isError || err != nil, "expected an error for timestamp %q", tc.timestamp)
+				if tc.errorContains != "" && resultText != "" {
+					require.Contains(t, resultText, tc.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+				require.False(t, isError, "unexpected error: %s", resultText)
+				if tc.validateTime != nil {
+					tc.validateTime(t, capturedTime)
+				}
+			}
+		})
+	}
+}
+
+// TestQueryHandlerWithWarnings verifies that Prometheus warnings are included
+// in the tool response.
+func TestQueryHandlerWithWarnings(t *testing.T) {
+	t.Parallel()
+
+	t.Run("single warning is included in response", func(t *testing.T) {
+		t.Parallel()
+
+		mockAPI := &MockPrometheusAPI{
+			QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				return model.Vector{&model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(1),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}}, promv1.Warnings{"instant query warning"}, nil
+			},
+		}
+		container := newTestContainer(mockAPI)
+
+		ts := mcptest.NewTestServer(t)
+		mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+
+		result, err := ts.CallTool(ts.Context(), "query", map[string]any{
+			"query": "up",
+		})
+
+		require.NoError(t, err)
+		require.False(t, result.IsError)
+
+		resultText := mcptest.GetResultText(result)
+		require.Contains(t, resultText, "instant query warning")
+
+		// Verify the warnings field is properly structured in JSON.
+		var parsed struct {
+			Result   string   `json:"result"`
+			Warnings []string `json:"warnings"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(resultText), &parsed))
+		require.Len(t, parsed.Warnings, 1)
+		require.Equal(t, "instant query warning", parsed.Warnings[0])
+	})
+
+	t.Run("multiple warnings are included in response", func(t *testing.T) {
+		t.Parallel()
+
+		mockAPI := &MockPrometheusAPI{
+			QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				return model.Vector{&model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(1),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}}, promv1.Warnings{"warning 1", "warning 2", "warning 3"}, nil
+			},
+		}
+		container := newTestContainer(mockAPI)
+
+		ts := mcptest.NewTestServer(t)
+		mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+
+		result, err := ts.CallTool(ts.Context(), "query", map[string]any{
+			"query": "up",
+		})
+
+		require.NoError(t, err)
+		require.False(t, result.IsError)
+
+		resultText := mcptest.GetResultText(result)
+
+		var parsed struct {
+			Result   string   `json:"result"`
+			Warnings []string `json:"warnings"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(resultText), &parsed))
+		require.Len(t, parsed.Warnings, 3)
+		require.Equal(t, []string{"warning 1", "warning 2", "warning 3"}, parsed.Warnings)
+	})
+
+	t.Run("no warnings results in null warnings field", func(t *testing.T) {
+		t.Parallel()
+
+		mockAPI := &MockPrometheusAPI{
+			QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				return model.Vector{&model.Sample{
+					Metric:    model.Metric{},
+					Value:     model.SampleValue(1),
+					Timestamp: model.TimeFromUnix(ts.Unix()),
+				}}, nil, nil
+			},
+		}
+		container := newTestContainer(mockAPI)
+
+		ts := mcptest.NewTestServer(t)
+		mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+
+		result, err := ts.CallTool(ts.Context(), "query", map[string]any{
+			"query": "up",
+		})
+
+		require.NoError(t, err)
+		require.False(t, result.IsError)
+
+		resultText := mcptest.GetResultText(result)
+		require.Contains(t, resultText, `"warnings":null`)
+	})
+}
+
+// TestRangeQueryHandlerWithWarnings verifies that range_query also propagates warnings.
+func TestRangeQueryHandlerWithWarnings(t *testing.T) {
+	t.Parallel()
+
+	mockAPI := &MockPrometheusAPI{
+		QueryRangeFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+			return model.Matrix{
+				&model.SampleStream{
+					Metric: model.Metric{},
+					Values: []model.SamplePair{
+						{Timestamp: model.TimeFromUnix(1756143048), Value: 1},
+					},
+				},
+			}, promv1.Warnings{"range query warning"}, nil
+		},
+	}
+	container := newTestContainer(mockAPI)
+
+	ts := mcptest.NewTestServer(t)
+	mcptest.AddTool(ts, rangeQueryToolDef, container.RangeQueryHandler)
+
+	result, err := ts.CallTool(ts.Context(), "range_query", map[string]any{
+		"query":      "up",
+		"start_time": "1756140000",
+		"end_time":   "1756143600",
+		"step":       "15s",
+	})
+
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	resultText := mcptest.GetResultText(result)
+
+	var parsed struct {
+		Result   string   `json:"result"`
+		Warnings []string `json:"warnings"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(resultText), &parsed))
+	require.Len(t, parsed.Warnings, 1)
+	require.Equal(t, "range query warning", parsed.Warnings[0])
+}
+
+// TestConcurrentQueryCalls verifies thread safety under parallel tool calls.
+func TestConcurrentQueryCalls(t *testing.T) {
+	t.Parallel()
+
+	const numGoroutines = 50
+	const callsPerGoroutine = 10
+
+	var mu sync.Mutex
+	queryCounts := make(map[string]int)
+
+	mockAPI := &MockPrometheusAPI{
+		QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+			mu.Lock()
+			queryCounts[query]++
+			mu.Unlock()
+
+			time.Sleep(1 * time.Millisecond)
+			return model.Vector{&model.Sample{
+				Metric:    model.Metric{"query": model.LabelValue(query)},
+				Value:     model.SampleValue(1),
+				Timestamp: model.TimeFromUnix(ts.Unix()),
+			}}, nil, nil
+		},
+	}
+	container := newTestContainer(mockAPI)
+
+	ts := mcptest.NewTestServer(t)
+	mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+
+	var wg sync.WaitGroup
+	errors := make(chan error, numGoroutines*callsPerGoroutine)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < callsPerGoroutine; j++ {
+				query := "up{goroutine=\"" + string(rune('A'+goroutineID%26)) + "\"}"
+				result, err := ts.CallTool(ts.Context(), "query", map[string]any{
+					"query": query,
+				})
+				if err != nil {
+					errors <- err
+					continue
+				}
+				if result.IsError {
+					errors <- nil // Track as error but continue.
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errors)
+
+	// Collect any errors.
+	var errCount int
+	for err := range errors {
+		if err != nil {
+			errCount++
+			t.Logf("Error during concurrent call: %v", err)
+		}
+	}
+
+	// All calls should succeed without errors.
+	require.Zero(t, errCount, "expected no errors during concurrent calls")
+
+	// Verify total call count.
+	mu.Lock()
+	totalCalls := 0
+	for _, count := range queryCounts {
+		totalCalls += count
+	}
+	mu.Unlock()
+
+	require.Equal(t, numGoroutines*callsPerGoroutine, totalCalls, "expected all calls to be processed")
+}
+
+// TestConcurrentMultipleToolCalls verifies thread safety when calling different
+// tools concurrently.
+func TestConcurrentMultipleToolCalls(t *testing.T) {
+	t.Parallel()
+
+	const numGoroutines = 20
+
+	var mu sync.Mutex
+	callCounts := make(map[string]int)
+
+	mockAPI := &MockPrometheusAPI{
+		QueryFunc: func(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+			mu.Lock()
+			callCounts["query"]++
+			mu.Unlock()
+			time.Sleep(1 * time.Millisecond)
+			return model.Vector{&model.Sample{
+				Metric:    model.Metric{},
+				Value:     model.SampleValue(1),
+				Timestamp: model.TimeFromUnix(ts.Unix()),
+			}}, nil, nil
+		},
+		LabelNamesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]string, promv1.Warnings, error) {
+			mu.Lock()
+			callCounts["label_names"]++
+			mu.Unlock()
+			time.Sleep(1 * time.Millisecond)
+			return []string{"__name__", "job", "instance"}, nil, nil
+		},
+		LabelValuesFunc: func(ctx context.Context, label string, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) (model.LabelValues, promv1.Warnings, error) {
+			mu.Lock()
+			callCounts["label_values"]++
+			mu.Unlock()
+			time.Sleep(1 * time.Millisecond)
+			return model.LabelValues{"prometheus", "node"}, nil, nil
+		},
+		SeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]model.LabelSet, promv1.Warnings, error) {
+			mu.Lock()
+			callCounts["series"]++
+			mu.Unlock()
+			time.Sleep(1 * time.Millisecond)
+			return []model.LabelSet{{"__name__": "up"}}, nil, nil
+		},
+	}
+	container := newTestContainer(mockAPI)
+
+	ts := mcptest.NewTestServer(t)
+	mcptest.AddTool(ts, queryToolDef, container.QueryHandler)
+	mcptest.AddTool(ts, labelNamesToolDef, container.LabelNamesHandler)
+	mcptest.AddTool(ts, labelValuesToolDef, container.LabelValuesHandler)
+	mcptest.AddTool(ts, seriesToolDef, container.SeriesHandler)
+
+	var wg sync.WaitGroup
+	errors := make(chan error, numGoroutines*4)
+
+	// Launch goroutines for each tool type.
+	for i := 0; i < numGoroutines; i++ {
+		// Query tool.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := ts.CallTool(ts.Context(), "query", map[string]any{"query": "up"})
+			if err != nil {
+				errors <- err
+			} else if result.IsError {
+				errors <- nil
+			}
+		}()
+
+		// Label names tool.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := ts.CallTool(ts.Context(), "label_names", map[string]any{})
+			if err != nil {
+				errors <- err
+			} else if result.IsError {
+				errors <- nil
+			}
+		}()
+
+		// Label values tool.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := ts.CallTool(ts.Context(), "label_values", map[string]any{"label": "job"})
+			if err != nil {
+				errors <- err
+			} else if result.IsError {
+				errors <- nil
+			}
+		}()
+
+		// Series tool.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := ts.CallTool(ts.Context(), "series", map[string]any{"matches": []string{"up"}})
+			if err != nil {
+				errors <- err
+			} else if result.IsError {
+				errors <- nil
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errors)
+
+	// Collect any errors.
+	var errCount int
+	for err := range errors {
+		if err != nil {
+			errCount++
+			t.Logf("Error during concurrent call: %v", err)
+		}
+	}
+
+	require.Zero(t, errCount, "expected no errors during concurrent multi-tool calls")
+
+	// Verify each tool was called the expected number of times.
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, numGoroutines, callCounts["query"])
+	require.Equal(t, numGoroutines, callCounts["label_names"])
+	require.Equal(t, numGoroutines, callCounts["label_values"])
+	require.Equal(t, numGoroutines, callCounts["series"])
+}
+
+// TestRangeQueryStepCalculation tests the automatic step calculation.
+func TestRangeQueryStepCalculation(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		startTime    string
+		endTime      string
+		expectedStep time.Duration
+	}{
+		{
+			name:         "1 hour range defaults to 14s step",
+			startTime:    "1756140000",
+			endTime:      "1756143600",     // 3600 seconds apart.
+			expectedStep: 14 * time.Second, // floor(3600/250) = 14.
+		},
+		{
+			name:         "24 hour range defaults to 345s step",
+			startTime:    "1756056000",
+			endTime:      "1756142400",      // 86400 seconds apart.
+			expectedStep: 345 * time.Second, // floor(86400/250) = 345.
+		},
+		{
+			name:         "5 minute range defaults to 1s step",
+			startTime:    "1756143000",
+			endTime:      "1756143300",    // 300 seconds apart.
+			expectedStep: 1 * time.Second, // floor(300/250) = 1.
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var capturedStep time.Duration
+
+			mockAPI := &MockPrometheusAPI{
+				QueryRangeFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+					capturedStep = r.Step
+					return model.Matrix{
+						&model.SampleStream{
+							Metric: model.Metric{},
+							Values: []model.SamplePair{
+								{Timestamp: model.TimeFromUnix(1756143048), Value: 1},
+							},
+						},
+					}, nil, nil
+				},
+			}
+			container := newTestContainer(mockAPI)
+
+			ts := mcptest.NewTestServer(t)
+			mcptest.AddTool(ts, rangeQueryToolDef, container.RangeQueryHandler)
+
+			result, err := ts.CallTool(ts.Context(), "range_query", map[string]any{
+				"query":      "up",
+				"start_time": tc.startTime,
+				"end_time":   tc.endTime,
+				// Auto-calculate step.
+			})
+
+			require.NoError(t, err)
+			require.False(t, result.IsError)
+			require.Equal(t, tc.expectedStep, capturedStep, "auto-calculated step should match expected")
+		})
+	}
+}
+
+// TestSeriesHandlerMultipleMatchers tests series with multiple matchers.
+func TestSeriesHandlerMultipleMatchers(t *testing.T) {
+	t.Parallel()
+
+	var capturedMatches []string
+
+	mockAPI := &MockPrometheusAPI{
+		SeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]model.LabelSet, promv1.Warnings, error) {
+			capturedMatches = matches
+			return []model.LabelSet{
+				{"__name__": "http_requests_total", "method": "GET"},
+				{"__name__": "http_requests_total", "method": "POST"},
+			}, nil, nil
+		},
+	}
+	container := newTestContainer(mockAPI)
+
+	ts := mcptest.NewTestServer(t)
+	mcptest.AddTool(ts, seriesToolDef, container.SeriesHandler)
+
+	result, err := ts.CallTool(ts.Context(), "series", map[string]any{
+		"matches": []string{
+			`http_requests_total{method="GET"}`,
+			`http_requests_total{method="POST"}`,
+		},
+	})
+
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	require.Len(t, capturedMatches, 2)
+	require.Contains(t, capturedMatches, `http_requests_total{method="GET"}`)
+	require.Contains(t, capturedMatches, `http_requests_total{method="POST"}`)
+
+	resultText := mcptest.GetResultText(result)
+	require.Contains(t, resultText, "http_requests_total")
+	require.Contains(t, resultText, "GET")
+	require.Contains(t, resultText, "POST")
+}
+
+// TestSeriesHandlerSpecialCharactersInMatchers tests matchers with special characters.
+func TestSeriesHandlerSpecialCharactersInMatchers(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		matcher string
+	}{
+		{
+			name:    "regex matcher",
+			matcher: `http_requests_total{method=~"GET|POST"}`,
+		},
+		{
+			name:    "negative matcher",
+			matcher: `http_requests_total{method!="DELETE"}`,
+		},
+		{
+			name:    "negative regex matcher",
+			matcher: `http_requests_total{method!~"DELETE|PUT"}`,
+		},
+		{
+			name:    "matcher with special characters in value",
+			matcher: `http_requests_total{path="/api/v1/query"}`,
+		},
+		{
+			name:    "matcher with unicode",
+			matcher: `http_requests_total{service="api-\u4e2d\u6587"}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var capturedMatcher string
+
+			mockAPI := &MockPrometheusAPI{
+				SeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time, opts ...promv1.Option) ([]model.LabelSet, promv1.Warnings, error) {
+					if len(matches) > 0 {
+						capturedMatcher = matches[0]
+					}
+					return []model.LabelSet{
+						{"__name__": "http_requests_total"},
+					}, nil, nil
+				},
+			}
+			container := newTestContainer(mockAPI)
+
+			ts := mcptest.NewTestServer(t)
+			mcptest.AddTool(ts, seriesToolDef, container.SeriesHandler)
+
+			result, err := ts.CallTool(ts.Context(), "series", map[string]any{
+				"matches": []string{tc.matcher},
+			})
+
+			require.NoError(t, err)
+			require.False(t, result.IsError)
+			require.Equal(t, tc.matcher, capturedMatcher)
 		})
 	}
 }

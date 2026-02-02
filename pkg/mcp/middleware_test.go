@@ -5,10 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -446,4 +452,493 @@ func TestTelemetryHandleResourceRead(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAuthContextMiddleware tests the HTTP middleware that extracts
+// Authorization headers and adds them to the request context.
+func TestAuthContextMiddleware(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		authHeader    string
+		expectedAuth  string
+		otherHeaders  map[string]string
+		verifyHeaders bool
+	}{
+		{
+			name:         "extracts Bearer token from Authorization header",
+			authHeader:   "Bearer my-secret-token",
+			expectedAuth: "Bearer my-secret-token",
+		},
+		{
+			name:         "extracts Basic auth from Authorization header",
+			authHeader:   "Basic dXNlcm5hbWU6cGFzc3dvcmQ=",
+			expectedAuth: "Basic dXNlcm5hbWU6cGFzc3dvcmQ=",
+		},
+		{
+			name:         "handles missing Authorization header gracefully",
+			authHeader:   "",
+			expectedAuth: "",
+		},
+		{
+			name:         "handles Authorization header with only whitespace",
+			authHeader:   "   ",
+			expectedAuth: "   ", // Note: middleware stores the raw value, does not trim
+		},
+		{
+			name:          "preserves other headers and request properties",
+			authHeader:    "Bearer test-token",
+			expectedAuth:  "Bearer test-token",
+			otherHeaders:  map[string]string{"X-Custom-Header": "custom-value", "Content-Type": "application/json"},
+			verifyHeaders: true,
+		},
+		{
+			name:         "handles token without type prefix",
+			authHeader:   "raw-token-value",
+			expectedAuth: "raw-token-value",
+		},
+		{
+			name:         "handles multi-word Bearer token",
+			authHeader:   "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ",
+			expectedAuth: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var capturedAuth string
+			var capturedReq *http.Request
+
+			innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedAuth = getAuthFromContext(r.Context())
+				capturedReq = r
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := authContextMiddleware(innerHandler)
+
+			req := httptest.NewRequest(http.MethodPost, "/mcp/v1", nil)
+			if tc.authHeader != "" {
+				req.Header.Set("Authorization", tc.authHeader)
+			}
+
+			// Add other headers if specified.
+			for key, value := range tc.otherHeaders {
+				req.Header.Set(key, value)
+			}
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, http.StatusOK, rr.Code)
+
+			// Verify auth context value.
+			// Empty auth headers are not added to context, but whitespace-only ones are.
+			if tc.authHeader == "" {
+				require.Empty(t, capturedAuth)
+			} else {
+				require.Equal(t, tc.expectedAuth, capturedAuth)
+			}
+
+			// Verify other headers were preserved.
+			if tc.verifyHeaders {
+				for key, value := range tc.otherHeaders {
+					require.Equal(t, value, capturedReq.Header.Get(key))
+				}
+			}
+		})
+	}
+}
+
+// TestAuthContextMiddleware_RequestMethod verifies that the middleware
+// correctly handles requests with different HTTP methods.
+func TestAuthContextMiddleware_RequestMethod(t *testing.T) {
+	t.Parallel()
+
+	methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions}
+
+	for _, method := range methods {
+		method := method
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
+			var capturedAuth string
+			var capturedMethod string
+
+			innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedAuth = getAuthFromContext(r.Context())
+				capturedMethod = r.Method
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := authContextMiddleware(innerHandler)
+
+			req := httptest.NewRequest(method, "/mcp/v1", nil)
+			req.Header.Set("Authorization", "Bearer method-test-token")
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, http.StatusOK, rr.Code)
+			require.Equal(t, method, capturedMethod)
+			require.Equal(t, "Bearer method-test-token", capturedAuth)
+		})
+	}
+}
+
+// TestFullAuthFlow tests the complete auth flow from HTTP request through
+// tool execution to Prometheus API call.
+func TestFullAuthFlow(t *testing.T) {
+	t.Parallel()
+
+	t.Run("auth header flows from HTTP request to Prometheus API call", func(t *testing.T) {
+		t.Parallel()
+
+		var prometheusReceivedAuth string
+		var mu sync.Mutex
+
+		// Create a mock Prometheus server that captures the Authorization header.
+		promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			prometheusReceivedAuth = r.Header.Get("Authorization")
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		}))
+		defer promServer.Close()
+
+		// Create container pointing to mock Prometheus server.
+		container := newTestContainer(nil)
+		container.prometheusURL = promServer.URL
+		container.defaultRT = http.DefaultTransport
+
+		// Create context with auth header.
+		ctx := addAuthToContext(context.Background(), "Bearer my-secret-api-token")
+
+		// Get an API client with auth from context.
+		_, rt := container.GetAPIClient(ctx)
+
+		// Make a request through the RoundTripper to verify auth is forwarded.
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/query", nil)
+		require.NoError(t, err)
+
+		_, err = rt.RoundTrip(req)
+		require.NoError(t, err)
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Equal(t, "Bearer my-secret-api-token", prometheusReceivedAuth)
+	})
+
+	t.Run("Basic auth flows through to Prometheus API call", func(t *testing.T) {
+		t.Parallel()
+
+		var prometheusReceivedAuth string
+		var mu sync.Mutex
+
+		promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			prometheusReceivedAuth = r.Header.Get("Authorization")
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		}))
+		defer promServer.Close()
+
+		container := newTestContainer(nil)
+		container.prometheusURL = promServer.URL
+		container.defaultRT = http.DefaultTransport
+
+		ctx := addAuthToContext(context.Background(), "Basic dXNlcm5hbWU6cGFzc3dvcmQ=")
+
+		_, rt := container.GetAPIClient(ctx)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/query", nil)
+		require.NoError(t, err)
+
+		_, err = rt.RoundTrip(req)
+		require.NoError(t, err)
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Equal(t, "Basic dXNlcm5hbWU6cGFzc3dvcmQ=", prometheusReceivedAuth)
+	})
+
+	t.Run("token without type prefix assumes Bearer", func(t *testing.T) {
+		t.Parallel()
+
+		var prometheusReceivedAuth string
+		var mu sync.Mutex
+
+		promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			prometheusReceivedAuth = r.Header.Get("Authorization")
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		}))
+		defer promServer.Close()
+
+		container := newTestContainer(nil)
+		container.prometheusURL = promServer.URL
+		container.defaultRT = http.DefaultTransport
+
+		// Token without type prefix - should be treated as Bearer.
+		ctx := addAuthToContext(context.Background(), "raw-token-only")
+
+		_, rt := container.GetAPIClient(ctx)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/query", nil)
+		require.NoError(t, err)
+
+		_, err = rt.RoundTrip(req)
+		require.NoError(t, err)
+
+		mu.Lock()
+		defer mu.Unlock()
+		// createClientWithAuth should add Bearer prefix for raw tokens.
+		require.Equal(t, "Bearer raw-token-only", prometheusReceivedAuth)
+	})
+
+	t.Run("different requests get different auth contexts", func(t *testing.T) {
+		t.Parallel()
+
+		var mu sync.Mutex
+		receivedAuths := make(map[string]string)
+
+		// Create mock Prometheus server that tracks auth headers by request path.
+		promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			receivedAuths[r.URL.Path] = r.Header.Get("Authorization")
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		}))
+		defer promServer.Close()
+
+		container := newTestContainer(nil)
+		container.prometheusURL = promServer.URL
+		container.defaultRT = http.DefaultTransport
+
+		// Simulate two concurrent requests with different auth contexts.
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			ctx := addAuthToContext(context.Background(), "Bearer tenant-a-token")
+			_, rt := container.GetAPIClient(ctx)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/tenant-a", nil)
+			assert.NoError(t, err)
+
+			_, err = rt.RoundTrip(req)
+			assert.NoError(t, err)
+		}()
+
+		go func() {
+			defer wg.Done()
+			ctx := addAuthToContext(context.Background(), "Bearer tenant-b-token")
+			_, rt := container.GetAPIClient(ctx)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/tenant-b", nil)
+			assert.NoError(t, err)
+
+			_, err = rt.RoundTrip(req)
+			assert.NoError(t, err)
+		}()
+
+		wg.Wait()
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Verify each tenant received their correct auth token.
+		require.Equal(t, "Bearer tenant-a-token", receivedAuths["/api/v1/tenant-a"])
+		require.Equal(t, "Bearer tenant-b-token", receivedAuths["/api/v1/tenant-b"])
+	})
+
+	t.Run("no auth in context uses default client without auth header", func(t *testing.T) {
+		t.Parallel()
+
+		var prometheusReceivedAuth string
+		var requestReceived bool
+		var mu sync.Mutex
+
+		promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			prometheusReceivedAuth = r.Header.Get("Authorization")
+			requestReceived = true
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		}))
+		defer promServer.Close()
+
+		mockAPI := &MockPrometheusAPI{}
+		container := newTestContainer(mockAPI)
+		container.prometheusURL = promServer.URL
+		container.defaultRT = http.DefaultTransport
+
+		// Context without auth.
+		ctx := context.Background()
+
+		client, rt := container.GetAPIClient(ctx)
+
+		// Should return the default mock client.
+		require.Equal(t, mockAPI, client)
+		require.Equal(t, http.DefaultTransport, rt)
+
+		// Make a request with the default RoundTripper.
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/query", nil)
+		require.NoError(t, err)
+
+		_, err = rt.RoundTrip(req)
+		require.NoError(t, err)
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.True(t, requestReceived)
+		// Default client should not add auth headers.
+		require.Empty(t, prometheusReceivedAuth)
+	})
+}
+
+// TestAddAuthToContext tests the addAuthToContext helper function.
+func TestAddAuthToContext(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		auth     string
+		expected string
+	}{
+		{
+			name:     "adds Bearer token to context",
+			auth:     "Bearer token123",
+			expected: "Bearer token123",
+		},
+		{
+			name:     "adds Basic auth to context",
+			auth:     "Basic dXNlcjpwYXNz",
+			expected: "Basic dXNlcjpwYXNz",
+		},
+		{
+			name:     "adds empty string to context",
+			auth:     "",
+			expected: "",
+		},
+		{
+			name:     "adds arbitrary string to context",
+			auth:     "CustomAuth xyz",
+			expected: "CustomAuth xyz",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := addAuthToContext(context.Background(), tc.auth)
+			result := getAuthFromContext(ctx)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// TestGetAuthFromContext tests the getAuthFromContext helper function.
+func TestGetAuthFromContext(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns empty string for context without auth", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		require.Empty(t, getAuthFromContext(ctx))
+	})
+
+	t.Run("returns auth value from context", func(t *testing.T) {
+		t.Parallel()
+		ctx := addAuthToContext(context.Background(), "Bearer secret")
+		require.Equal(t, "Bearer secret", getAuthFromContext(ctx))
+	})
+
+	t.Run("returns empty string for context with wrong type value", func(t *testing.T) {
+		t.Parallel()
+		// Create context with wrong type for auth key.
+		ctx := context.WithValue(context.Background(), authHeaderKey{}, 12345)
+		require.Empty(t, getAuthFromContext(ctx))
+	})
+}
+
+// TestAuthContextMiddleware_Integration tests the full HTTP request flow
+// through the middleware to verify context propagation.
+func TestAuthContextMiddleware_Integration(t *testing.T) {
+	t.Parallel()
+
+	t.Run("middleware propagates auth through handler chain", func(t *testing.T) {
+		t.Parallel()
+
+		var capturedAuths []string
+		var mu sync.Mutex
+
+		// Create a chain of handlers to verify context propagation.
+		innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := getAuthFromContext(r.Context())
+			mu.Lock()
+			capturedAuths = append(capturedAuths, auth)
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := authContextMiddleware(innerHandler)
+
+		// Make multiple requests with different auth values.
+		tokens := []string{"Bearer token1", "Bearer token2", "Basic creds"}
+		for _, token := range tokens {
+			req := httptest.NewRequest(http.MethodPost, "/mcp/v1", nil)
+			req.Header.Set("Authorization", token)
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, http.StatusOK, rr.Code)
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Equal(t, tokens, capturedAuths)
+	})
+
+	t.Run("middleware handles request body correctly", func(t *testing.T) {
+		t.Parallel()
+
+		var capturedBody string
+		var readErr error
+
+		innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			readErr = err
+			capturedBody = string(body)
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := authContextMiddleware(innerHandler)
+
+		requestBody := `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"query"}}`
+		req := httptest.NewRequest(http.MethodPost, "/mcp/v1", strings.NewReader(requestBody))
+		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		require.NoError(t, readErr)
+		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, requestBody, capturedBody)
+	})
 }
