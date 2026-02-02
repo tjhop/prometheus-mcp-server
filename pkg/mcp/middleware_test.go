@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -509,11 +510,11 @@ func TestAuthContextMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var capturedCtx context.Context
+			var capturedAuth string
 			var capturedReq *http.Request
 
 			innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				capturedCtx = r.Context()
+				capturedAuth = getAuthFromContext(r.Context())
 				capturedReq = r
 				w.WriteHeader(http.StatusOK)
 			})
@@ -536,12 +537,11 @@ func TestAuthContextMiddleware(t *testing.T) {
 			require.Equal(t, http.StatusOK, rr.Code)
 
 			// Verify auth context value.
-			auth := getAuthFromContext(capturedCtx)
 			// Empty auth headers are not added to context, but whitespace-only ones are.
 			if tc.authHeader == "" {
-				require.Empty(t, auth)
+				require.Empty(t, capturedAuth)
 			} else {
-				require.Equal(t, tc.expectedAuth, auth)
+				require.Equal(t, tc.expectedAuth, capturedAuth)
 			}
 
 			// Verify other headers were preserved.
@@ -566,11 +566,12 @@ func TestAuthContextMiddleware_RequestMethod(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 
-			var capturedCtx context.Context
+			var capturedAuth string
+			var capturedMethod string
 
 			innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				capturedCtx = r.Context()
-				require.Equal(t, method, r.Method)
+				capturedAuth = getAuthFromContext(r.Context())
+				capturedMethod = r.Method
 				w.WriteHeader(http.StatusOK)
 			})
 
@@ -583,7 +584,8 @@ func TestAuthContextMiddleware_RequestMethod(t *testing.T) {
 			handler.ServeHTTP(rr, req)
 
 			require.Equal(t, http.StatusOK, rr.Code)
-			require.Equal(t, "Bearer method-test-token", getAuthFromContext(capturedCtx))
+			require.Equal(t, method, capturedMethod)
+			require.Equal(t, "Bearer method-test-token", capturedAuth)
 		})
 	}
 }
@@ -732,10 +734,10 @@ func TestFullAuthFlow(t *testing.T) {
 			_, rt := container.GetAPIClient(ctx)
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/tenant-a", nil)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			_, err = rt.RoundTrip(req)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}()
 
 		go func() {
@@ -744,10 +746,10 @@ func TestFullAuthFlow(t *testing.T) {
 			_, rt := container.GetAPIClient(ctx)
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, promServer.URL+"/api/v1/tenant-b", nil)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			_, err = rt.RoundTrip(req)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}()
 
 		wg.Wait()
@@ -916,10 +918,11 @@ func TestAuthContextMiddleware_Integration(t *testing.T) {
 		t.Parallel()
 
 		var capturedBody string
+		var readErr error
 
 		innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
+			readErr = err
 			capturedBody = string(body)
 			w.WriteHeader(http.StatusOK)
 		})
@@ -934,6 +937,7 @@ func TestAuthContextMiddleware_Integration(t *testing.T) {
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
+		require.NoError(t, readErr)
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.Equal(t, requestBody, capturedBody)
 	})

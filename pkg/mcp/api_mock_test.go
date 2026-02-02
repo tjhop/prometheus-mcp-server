@@ -60,6 +60,7 @@ type MetadataCall struct {
 // for verifying that handlers call the API with correct parameters.
 //
 // Call tracking example:
+//
 //	mockAPI := &MockPrometheusAPI{}
 //	// ... run handler ...
 //	require.Len(t, mockAPI.QueryCalls, 1)
