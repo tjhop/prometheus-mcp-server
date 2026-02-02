@@ -46,7 +46,7 @@ var (
 	}
 
 	docsReadResourceTemplate = &mcp.ResourceTemplate{
-		URITemplate: resourcePrefix + "docs/{file}",
+		URITemplate: resourcePrefix + "docs/{+file}",
 		Name:        "Official Prometheus Documentation",
 		Description: "Read the named markdown file containing official Prometheus documentation from the prometheus/docs repo",
 		MIMEType:    "text/markdown",
