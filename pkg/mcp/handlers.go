@@ -119,6 +119,16 @@ func displayTruncationWarning(limit int) string {
 	return fmt.Sprintf(truncationWarningTemplate, limit)
 }
 
+// parseTimeWithDefault parses a time string using ParseTimestampOrDuration.
+// If the input is empty, it returns defaultVal. This consolidates the repeated
+// optional time parsing pattern used across multiple handlers.
+func parseTimeWithDefault(s string, defaultVal time.Time) (time.Time, error) {
+	if s == "" {
+		return defaultVal, nil
+	}
+	return mcpProm.ParseTimestampOrDuration(s)
+}
+
 // Tool handler methods for ServerContainer
 
 // QueryHandler handles the instant query tool.
@@ -151,22 +161,14 @@ func (s *ServerContainer) RangeQueryHandler(ctx context.Context, req *mcp.CallTo
 		return newToolErrorResult("query parameter is required"), nil, nil
 	}
 
-	endTs := time.Now()
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Now())
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	startTs := endTs.Add(DefaultLookbackDelta)
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, endTs.Add(DefaultLookbackDelta))
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	// Calculate step based on actual time range (after parsing user input).
@@ -197,22 +199,14 @@ func (s *ServerContainer) ExemplarQueryHandler(ctx context.Context, req *mcp.Cal
 		return newToolErrorResult("query parameter is required"), nil, nil
 	}
 
-	endTs := time.Now()
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Now())
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	startTs := endTs.Add(DefaultLookbackDelta)
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, endTs.Add(DefaultLookbackDelta))
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -229,23 +223,14 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 		return newToolErrorResult("at least one matches parameter is required"), nil, nil
 	}
 
-	endTs := time.Time{}
-	startTs := time.Time{}
-
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -258,23 +243,14 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 
 // LabelNamesHandler handles the label names query tool.
 func (s *ServerContainer) LabelNamesHandler(ctx context.Context, req *mcp.CallToolRequest, input LabelNamesInput) (*mcp.CallToolResult, any, error) {
-	endTs := time.Time{}
-	startTs := time.Time{}
-
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -291,23 +267,14 @@ func (s *ServerContainer) LabelValuesHandler(ctx context.Context, req *mcp.CallT
 		return newToolErrorResult("label parameter is required"), nil, nil
 	}
 
-	endTs := time.Time{}
-	startTs := time.Time{}
-
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -459,23 +426,14 @@ func (s *ServerContainer) DeleteSeriesHandler(ctx context.Context, req *mcp.Call
 
 	logger := s.GetToolLogger(req, input)
 
-	endTs := time.Time{}
-	startTs := time.Time{}
-
-	if input.EndTime != "" {
-		parsedEndTime, err := mcpProm.ParseTimestampOrDuration(input.EndTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-		}
-		endTs = parsedEndTime
+	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
 	}
 
-	if input.StartTime != "" {
-		parsedStartTime, err := mcpProm.ParseTimestampOrDuration(input.StartTime)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
-		}
-		startTs = parsedStartTime
+	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
 	}
 
 	logger.Warn("executing TSDB admin operation: delete series")
