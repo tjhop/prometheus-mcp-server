@@ -531,7 +531,7 @@ func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
 // for structured logging.
 //
 // This is to supplement the standard logging that every tool gets through the
-// telemtry middleware. Since this can also send logs to the MCP client via
+// telemetry middleware. Since this can also send logs to the MCP client via
 // protocol notifications, it's intended to be used for important contextual
 // messages that should notify the user and log as appropriate. Currently, it
 // is primarily used by the TSDB Admin tools to do extra logging around admin
