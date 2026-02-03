@@ -69,7 +69,7 @@ func registerResources(server *mcp.Server, container *ServerContainer) {
 
 // ListMetricsResourceHandler handles the list_metrics resource request.
 func (s *ServerContainer) ListMetricsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	result, err := s.labelValuesApiCall(ctx, "__name__", nil, time.Time{}, time.Time{}, 0)
+	result, err := s.labelValuesAPICall(ctx, "__name__", nil, time.Time{}, time.Time{}, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get metric names: %w", err)
 	}
@@ -87,7 +87,7 @@ func (s *ServerContainer) ListMetricsResourceHandler(ctx context.Context, req *m
 
 // TargetsResourceHandler handles the targets resource request.
 func (s *ServerContainer) TargetsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	result, err := s.targetsApiCall(ctx)
+	result, err := s.targetsAPICall(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get target info: %w", err)
 	}
@@ -105,7 +105,7 @@ func (s *ServerContainer) TargetsResourceHandler(ctx context.Context, req *mcp.R
 
 // TsdbStatsResourceHandler handles the tsdb_stats resource request.
 func (s *ServerContainer) TsdbStatsResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	result, err := s.tsdbStatsApiCall(ctx)
+	result, err := s.tsdbStatsAPICall(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process tsdb stats: %w", err)
 	}
