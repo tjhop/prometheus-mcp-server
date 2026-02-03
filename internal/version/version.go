@@ -25,6 +25,13 @@ func Print(programName string) string {
 	)
 }
 
+// UserAgent returns the User-Agent string for HTTP clients in this project.
+// This is a function rather than a package-level variable because Version is
+// populated by the linker at build time and may not be set during var init.
+func UserAgent() string {
+	return fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", Version)
+}
+
 // Info print build info in a more condensed, single line format.
 // Models return on: github.com/prometheus/common/version.Info().
 func Info() string {

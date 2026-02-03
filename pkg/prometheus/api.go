@@ -11,10 +11,6 @@ import (
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
 )
 
-var (
-	userAgent = fmt.Sprintf("prometheus-mcp-server/%s (https://github.com/tjhop/prometheus-mcp-server)", version.Version)
-)
-
 // NewAPIClient creates a Prometheus API client configured with a custom
 // User-Agent header. If rt is nil, http.DefaultTransport is used.
 func NewAPIClient(prometheusURL string, rt http.RoundTripper) (promv1.API, error) {
@@ -22,7 +18,7 @@ func NewAPIClient(prometheusURL string, rt http.RoundTripper) (promv1.API, error
 		rt = http.DefaultTransport
 	}
 
-	uart := config.NewUserAgentRoundTripper(userAgent, rt)
+	uart := config.NewUserAgentRoundTripper(version.UserAgent(), rt)
 
 	client, err := api.NewClient(api.Config{
 		Address:      prometheusURL,

@@ -22,8 +22,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/prometheus/client_golang/prometheus"
+	promconfig "github.com/prometheus/common/config"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
+	"github.com/tjhop/prometheus-mcp-server/internal/version"
 )
 
 const (
@@ -121,9 +123,12 @@ type DocsUpdater struct {
 // embeddedHash is the git commit hash of the docs submodule embedded at build time.
 func NewDocsUpdater(logger *slog.Logger, container *ServerContainer, embeddedHash string) *DocsUpdater {
 	return &DocsUpdater{
-		logger:      logger.With("component", "docs_updater"),
-		container:   container,
-		httpClient:  &http.Client{Timeout: httpClientTimeout},
+		logger:    logger.With("component", "docs_updater"),
+		container: container,
+		httpClient: &http.Client{
+			Timeout:   httpClientTimeout,
+			Transport: promconfig.NewUserAgentRoundTripper(version.UserAgent(), http.DefaultTransport),
+		},
 		currentHash: embeddedHash,
 		repoURL:     docsRepoURL,
 		archiveURL:  docsArchiveURL,
