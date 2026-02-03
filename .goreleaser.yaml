@@ -1,5 +1,9 @@
 version: 2
 
+before:
+  hooks:
+    - bash -c 'git -C cmd/prometheus-mcp-server/external/docs rev-parse HEAD > cmd/prometheus-mcp-server/external/docs/COMMIT_HASH'
+
 builds:
   - env:
       - CGO_ENABLED=0

@@ -61,11 +61,11 @@ const (
 )
 
 type chunk struct {
-	Id      int
+	ID      int
 	Name    string
 	Content string
 }
 
-func (c *chunk) ID() string {
-	return fmt.Sprintf("%s#%d", c.Name, c.Id)
+func (c *chunk) String() string {
+	return fmt.Sprintf("%s#%d", c.Name, c.ID)
 }
