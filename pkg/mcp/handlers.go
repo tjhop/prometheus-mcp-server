@@ -643,7 +643,7 @@ func (s *ServerContainer) queryAPICall(ctx context.Context, query string, ts tim
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to execute instant query: %w", err)
+		return "", fmt.Errorf("failed to execute instant query: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	resultString := result.String()
@@ -670,7 +670,7 @@ func (s *ServerContainer) rangeQueryAPICall(ctx context.Context, query string, s
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to execute range query: %w", err)
+		return "", fmt.Errorf("failed to execute range query: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	resultString := result.String()
@@ -697,7 +697,7 @@ func (s *ServerContainer) exemplarQueryAPICall(ctx context.Context, query string
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to execute exemplar query: %w", err)
+		return "", fmt.Errorf("failed to execute exemplar query: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	var resultSB strings.Builder
@@ -734,7 +734,7 @@ func (s *ServerContainer) seriesAPICall(ctx context.Context, matches []string, s
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get series: %w", err)
+		return "", fmt.Errorf("failed to get series: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	lsets := make([]string, len(result))
@@ -766,7 +766,7 @@ func (s *ServerContainer) labelNamesAPICall(ctx context.Context, matches []strin
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get label names: %w", err)
+		return "", fmt.Errorf("failed to get label names: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	resultString := strings.Join(result, "\n")
@@ -793,7 +793,7 @@ func (s *ServerContainer) labelValuesAPICall(ctx context.Context, label string, 
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get label values: %w", err)
+		return "", fmt.Errorf("failed to get label values: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	lvals := make([]string, len(result))
@@ -844,7 +844,7 @@ func (s *ServerContainer) metricMetadataAPICall(ctx context.Context, metric, lim
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get metric metadata from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get metric metadata from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	encodedData, err := s.FormatOutput(mm)
@@ -889,7 +889,7 @@ func (s *ServerContainer) targetsMetadataAPICall(ctx context.Context, matchTarge
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get target metadata from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get target metadata from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	encodedData, err := s.FormatOutput(tm)
@@ -915,7 +915,7 @@ func (s *ServerContainer) alertmanagersAPICall(ctx context.Context) (string, err
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alertmanager status from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get alertmanager status from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(ams)
@@ -932,7 +932,7 @@ func (s *ServerContainer) flagsAPICall(ctx context.Context) (string, error) {
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime flags from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get runtime flags from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(flags)
@@ -949,7 +949,7 @@ func (s *ServerContainer) listAlertsAPICall(ctx context.Context) (string, error)
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alerts from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get alerts from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(alerts)
@@ -966,7 +966,7 @@ func (s *ServerContainer) tsdbStatsAPICall(ctx context.Context) (string, error) 
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get tsdb stats from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get tsdb stats from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(tsdbStats)
@@ -983,7 +983,7 @@ func (s *ServerContainer) buildinfoAPICall(ctx context.Context) (string, error) 
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get build info from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get build info from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(bi)
@@ -1000,7 +1000,7 @@ func (s *ServerContainer) configAPICall(ctx context.Context) (string, error) {
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get configuration from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get configuration from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(cfg)
@@ -1017,7 +1017,7 @@ func (s *ServerContainer) runtimeinfoAPICall(ctx context.Context) (string, error
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime info from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get runtime info from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(ri)
@@ -1034,7 +1034,7 @@ func (s *ServerContainer) rulesAPICall(ctx context.Context) (string, error) {
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get rules from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get rules from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(rules)
@@ -1051,7 +1051,7 @@ func (s *ServerContainer) targetsAPICall(ctx context.Context) (string, error) {
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get targets from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get targets from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(targets)
@@ -1068,7 +1068,7 @@ func (s *ServerContainer) walReplayAPICall(ctx context.Context) (string, error) 
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get WAL replay status from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to get WAL replay status from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(wal)
@@ -1085,7 +1085,7 @@ func (s *ServerContainer) cleanTombstonesAPICall(ctx context.Context) (string, e
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to clean tombstones from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to clean tombstones from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return "success", nil
@@ -1102,7 +1102,7 @@ func (s *ServerContainer) deleteSeriesAPICall(ctx context.Context, matches []str
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to delete series from Prometheus: %w", err)
+		return "", fmt.Errorf("failed to delete series from Prometheus: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return "success", nil
@@ -1119,7 +1119,7 @@ func (s *ServerContainer) snapshotAPICall(ctx context.Context, skipHead bool) (s
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to create Prometheus snapshot: %w", err)
+		return "", fmt.Errorf("failed to create Prometheus snapshot: %w", wrapErrorIfNotFound(err, path))
 	}
 
 	return s.FormatOutput(ss)
@@ -1164,6 +1164,12 @@ func (s *ServerContainer) doHTTPRequest(ctx context.Context, method string, rt h
 	metricAPICallDuration.With(prometheus.Labels{"target_path": requestPath}).Observe(time.Since(startTs).Seconds())
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return "", &ErrEndpointNotSupported{
+				Endpoint:   requestPath,
+				StatusCode: resp.StatusCode,
+			}
+		}
 		return "", fmt.Errorf("received non-ok HTTP status code: %d", resp.StatusCode)
 	}
 
