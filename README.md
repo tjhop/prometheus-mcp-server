@@ -174,13 +174,13 @@ Qualifications and support criteria are still under consideration, please open a
 
 ### Resources
 
-| Resource Name | Resource URI | Description | 
+| Resource Name | Resource URI | Description |
 | --- | --- | --- |
-| `prometheus://list_metrics` | List metrics available |
-| `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
-| `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
-| `prometheus://docs` | List of official Prometheus Documentation files |
-| `prometheus://docs{/file*}` | Read official Prometheus Documentation files by name | 
+| List metrics | `prometheus://list_metrics` | List metrics available |
+| Targets | `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
+| TSDB Stats | `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
+| List of Official Prometheus Documentation Files | `prometheus://docs` | List of official Prometheus Documentation files |
+| Read Official Prometheus Documentation | `prometheus://docs/{+file}` | Read official Prometheus Documentation files by name |
 
 ## Installation and Usage
 
