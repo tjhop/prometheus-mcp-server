@@ -1503,6 +1503,23 @@ func TestTsdbStatsHandler(t *testing.T) {
 				require.Contains(t, result, "prometheus exploded")
 			},
 		},
+		{
+			name: "404 endpoint not supported",
+			args: map[string]any{},
+			mockTSDBFunc: func(ctx context.Context, opts ...promv1.Option) (promv1.TSDBResult, error) {
+				return promv1.TSDBResult{}, &promv1.Error{
+					Type: promv1.ErrClient,
+					Msg:  "client error: 404",
+				}
+			},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "may not be supported by your version of Prometheus")
+				require.Contains(t, result, "/api/v1/status/tsdb")
+				require.Contains(t, result, "build_info")
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1914,6 +1931,20 @@ func TestHealthyHandler(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, isError)
 				require.Contains(t, result, "connection refused")
+			},
+		},
+		{
+			name: "404 endpoint not supported",
+			args: map[string]any{},
+			mockRTFunc: func(req *http.Request) (*http.Response, error) {
+				return newMockHTTPResponse(http.StatusNotFound, "Not Found"), nil
+			},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "may not be supported by your version of Prometheus")
+				require.Contains(t, result, "/-/healthy")
+				require.Contains(t, result, "build_info")
 			},
 		},
 	}
