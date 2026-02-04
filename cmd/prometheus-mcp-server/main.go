@@ -240,9 +240,10 @@ func main() {
 				return nil
 			},
 			func(error) {
-				if err := srv.Shutdown(ctx); err != nil {
-					// Error from closing listeners, or context timeout:
-					logger.Error("failed to close listeners/context timeout", "err", err)
+				shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer shutdownCancel()
+				if err := srv.Shutdown(shutdownCtx); err != nil {
+					logger.Error("failed to shut down webserver gracefully", "err", err)
 				}
 				close(cancel)
 				rootCtxCancel()
