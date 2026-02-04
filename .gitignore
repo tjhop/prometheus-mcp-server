@@ -7,3 +7,6 @@
 dist/
 /prometheus-mcp-server
 mcp.json
+
+# Generated docs submodule commit hash (created by make submodules / goreleaser)
+cmd/prometheus-mcp-server/external/docs/COMMIT_HASH

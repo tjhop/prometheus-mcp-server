@@ -2157,12 +2157,13 @@ func mockDocsFS() fs.FS {
 // This is a convenience wrapper that uses newTestContainer and initializes docs search.
 func newTestContainerWithDocs(mockAPI *MockPrometheusAPI, docsFS fs.FS) (*ServerContainer, error) {
 	container := newTestContainer(mockAPI)
-	container.docsFS = docsFS
 
 	if docsFS != nil {
-		if err := container.initDocsSearch(); err != nil {
+		state, err := buildDocsState(slog.Default(), docsFS)
+		if err != nil {
 			return nil, err
 		}
+		container.docs.Store(state)
 	}
 
 	return container, nil
@@ -2201,12 +2202,7 @@ func TestDocsListHandler(t *testing.T) {
 			var container *ServerContainer
 			var err error
 			if tc.docsFS == nil {
-				container = &ServerContainer{
-					logger:           slog.Default(),
-					defaultAPIClient: &MockPrometheusAPI{},
-					prometheusURL:    "http://localhost:9090",
-					docsFS:           nil,
-				}
+				container = newTestContainer(&MockPrometheusAPI{})
 			} else {
 				container, err = newTestContainerWithDocs(&MockPrometheusAPI{}, tc.docsFS)
 				require.NoError(t, err)
@@ -2366,7 +2362,8 @@ func TestDocsSearchHandler(t *testing.T) {
 				// Create container with docsFS set but without initializing
 				// the search index, simulating a failed index initialization.
 				container = newTestContainer(&MockPrometheusAPI{})
-				container.docsFS = tc.docsFS
+				// Store state with fs but no search index.
+				container.docs.Store(&docsState{fs: tc.docsFS})
 			} else {
 				var err error
 				container, err = newTestContainerWithDocs(&MockPrometheusAPI{}, tc.docsFS)

@@ -269,6 +269,8 @@ Please see [Flags](#command-line-flags) for more information on how to change th
 | `prom_mcp_tool_call_duration_seconds` | `Histogram` | Duration of tool calls, per tool, in seconds. | `tool_name` |
 | `prom_mcp_resource_calls_failed_total` | `Counter` | Total number of failures per resource. | `resource_uri` |
 | `prom_mcp_resource_call_duration_seconds` | `Histogram` | Duration of resource calls, per resource, in seconds. | `resource_uri` |
+| `prom_mcp_docs_last_update_timestamp_seconds` | `Gauge` | Unix timestamp of last successful docs auto-update. | |
+| `prom_mcp_docs_update_failures_total` | `Counter` | Total number of docs auto-update failures. | |
 | `go_*` | `Gauge`/`Counter` | Standard Go runtime metrics from the `client_golang` library. | |
 | `process_*` | `Gauge`/`Counter` | Standard process metrics from the `client_golang` library. | |
 
@@ -402,6 +404,8 @@ Flags:
                                  tools). This is dangerous, and allows for destructive operations like deleting data. It is not the fault of this MCP server if
                                  the LLM you're connected to nukes all your data. Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
                                  ($PROMETHEUS_MCP_SERVER_DANGEROUS_ENABLE_TSDB_ADMIN_TOOLS)
+      --[no-]docs.auto-update    Enable automatic documentation updates from the official prometheus/docs repository. Checks every 24 hours.
+                                 ($PROMETHEUS_MCP_SERVER_DOCS_AUTO_UPDATE)
       --log.file=LOG.FILE        The name of the file to log to (file rotation policies should be configured with external tools like logrotate)
                                  ($PROMETHEUS_MCP_SERVER_LOG_FILE)
       --mcp.transport="stdio"    The type of transport to use for the MCP server [`stdio`, `http`]. ($PROMETHEUS_MCP_SERVER_MCP_TRANSPORT)

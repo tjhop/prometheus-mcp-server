@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/alpkeskin/gotoon"
@@ -225,6 +226,14 @@ func authContextMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// docsState holds the documentation filesystem, search index, and chunks.
+// It is designed to be swapped atomically for live documentation updates.
+type docsState struct {
+	fs          fs.FS
+	searchIndex bleve.Index
+	chunks      []chunk
+}
+
 // ServerContainer holds all dependencies needed by tool and resource handlers.
 // It replaces the middleware-based context smuggling pattern needed with the
 // mcp-go library with explicit dependency injection.
@@ -242,10 +251,8 @@ type ServerContainer struct {
 	apiTimeout            time.Duration
 	clientLoggingEnabled  bool
 
-	// Docs and search index.
-	docsFS          fs.FS
-	docsSearchIndex bleve.Index
-	docsChunks      []chunk
+	// Docs state with atomic pointer for lock-free reads and safe live swaps.
+	docs atomic.Pointer[docsState]
 }
 
 // serverContainerConfig holds configuration for creating a ServerContainer.
@@ -277,16 +284,18 @@ func newServerContainer(cfg serverContainerConfig) (*ServerContainer, error) {
 		toonOutputEnabled:     cfg.ToonOutputEnabled,
 		tsdbAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,
 		apiTimeout:            cfg.APITimeout,
-		docsFS:                cfg.DocsFS,
 		clientLoggingEnabled:  cfg.ClientLoggingEnabled,
 	}
 
 	// Initialize docs search if FS is provided.
 	if cfg.DocsFS != nil {
-		if err := container.initDocsSearch(); err != nil {
+		state, err := buildDocsState(cfg.Logger, cfg.DocsFS)
+		if err != nil {
 			cfg.Logger.Error("Failed to initialize docs search", "err", err)
 			// Non-fatal - continue without docs search.
 		}
+
+		container.docs.Store(state)
 	}
 
 	return container, nil
@@ -369,10 +378,28 @@ func (s *ServerContainer) GetEffectiveTruncationLimit(perCallLimit int) int {
 // errDocsNotProvided is returned when docs filesystem is not configured.
 var errDocsNotProvided = errors.New("docs filesystem not provided")
 
-// initDocsSearch initializes the docs search index by chunking and indexing all docs.
-func (s *ServerContainer) initDocsSearch() error {
-	if s.docsFS == nil {
-		return errDocsNotProvided
+// getDocsState returns the current docs state, or nil if not initialized.
+func (s *ServerContainer) getDocsState() *docsState {
+	return s.docs.Load()
+}
+
+// swapDocsState atomically replaces the current docs state with a new one.
+// This enables live documentation updates without locking.
+func (s *ServerContainer) swapDocsState(state *docsState) {
+	oldState := s.docs.Load()
+	s.docs.Store(state)
+	if oldState != nil && oldState.searchIndex != nil {
+		if err := oldState.searchIndex.Close(); err != nil {
+			s.logger.Error("failed to close old search index", "err", err)
+		}
+	}
+}
+
+// buildDocsState creates a new docsState from the given filesystem.
+// It chunks the markdown files and builds a search index.
+func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
+	if docsFS == nil {
+		return nil, errDocsNotProvided
 	}
 
 	splitter := textsplitter.NewMarkdownTextSplitter(
@@ -386,58 +413,61 @@ func (s *ServerContainer) initDocsSearch() error {
 		textsplitter.WithReferenceLinks(true),
 	)
 
-	docFiles, err := getDocFileNames(s.docsFS)
+	docFiles, err := getDocFileNames(docsFS)
 	if err != nil {
-		return fmt.Errorf("failed listing docs files: %w", err)
+		return nil, fmt.Errorf("failed listing docs files: %w", err)
 	}
 
 	// Configure bleve logger only once, avoids race conditions if building
 	// multiple docs states concurrently.
 	bleveSetLogOnce.Do(func() {
-		bleve.SetLog(slog.NewLogLogger(s.logger.Handler(), slog.LevelDebug))
+		bleve.SetLog(slog.NewLogLogger(logger.Handler(), slog.LevelDebug))
 	})
 	mapping := bleve.NewIndexMapping()
 	searchIndex, err := bleve.NewMemOnly(mapping)
 	if err != nil {
-		return fmt.Errorf("failed to create in-memory search index: %w", err)
+		return nil, fmt.Errorf("failed to create in-memory search index: %w", err)
 	}
 
 	var chunks []chunk
 	for _, fn := range docFiles {
-		content, err := getDocFileContent(s.docsFS, fn)
+		content, err := getDocFileContent(docsFS, fn)
 		if err != nil {
-			s.logger.Error("Failed reading doc file", "file", fn, "err", err)
+			logger.Error("Failed reading doc file", "file", fn, "err", err)
 			continue
 		}
 
 		textChunks, err := splitter.SplitText(content)
 		if err != nil {
-			s.logger.Error("Failed to split doc into chunks", "file", fn, "err", err)
+			logger.Error("Failed to split doc into chunks", "file", fn, "err", err)
 			continue
 		}
 
 		for i, c := range textChunks {
 			newChunk := chunk{
-				Id:      i + 1,
+				ID:      i + 1,
 				Name:    fn,
 				Content: c,
 			}
 			chunks = append(chunks, newChunk)
-			if err := searchIndex.Index(newChunk.ID(), newChunk); err != nil {
-				s.logger.Error("Failed to index chunk", "chunk_id", newChunk.ID(), "err", err)
+			if err := searchIndex.Index(newChunk.String(), newChunk); err != nil {
+				logger.Error("Failed to index chunk", "chunk_id", newChunk.String(), "err", err)
 				continue
 			}
 		}
 	}
 
-	s.docsChunks = chunks
-	s.docsSearchIndex = searchIndex
-	return nil
+	return &docsState{
+		fs:          docsFS,
+		searchIndex: searchIndex,
+		chunks:      chunks,
+	}, nil
 }
 
 // SearchDocs searches the docs index and returns matching chunk IDs.
 func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
-	if s.docsSearchIndex == nil {
+	ds := s.getDocsState()
+	if ds == nil || ds.searchIndex == nil {
 		return nil, errors.New("docs search index not initialized")
 	}
 
@@ -453,7 +483,7 @@ func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
 	req.Highlight = bleve.NewHighlight()
 	req.Fields = []string{"*"}
 
-	searchRes, err := s.docsSearchIndex.Search(req)
+	searchRes, err := ds.searchIndex.Search(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search docs index: %w", err)
 	}
@@ -472,18 +502,20 @@ func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
 
 // GetDocFileNames returns a list of all doc file names.
 func (s *ServerContainer) GetDocFileNames() ([]string, error) {
-	if s.docsFS == nil {
+	ds := s.getDocsState()
+	if ds == nil || ds.fs == nil {
 		return nil, errDocsNotProvided
 	}
-	return getDocFileNames(s.docsFS)
+	return getDocFileNames(ds.fs)
 }
 
 // GetDocFileContent returns the content of a doc file.
 func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
-	if s.docsFS == nil {
+	ds := s.getDocsState()
+	if ds == nil || ds.fs == nil {
 		return "", errDocsNotProvided
 	}
-	return getDocFileContent(s.docsFS, path)
+	return getDocFileContent(ds.fs, path)
 }
 
 // Logging helper methods
@@ -499,7 +531,7 @@ func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
 // for structured logging.
 //
 // This is to supplement the standard logging that every tool gets through the
-// telemtry middleware. Since this can also send logs to the MCP client via
+// telemetry middleware. Since this can also send logs to the MCP client via
 // protocol notifications, it's intended to be used for important contextual
 // messages that should notify the user and log as appropriate. Currently, it
 // is primarily used by the TSDB Admin tools to do extra logging around admin
