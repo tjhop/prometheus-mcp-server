@@ -43,6 +43,7 @@ var (
 	// expose a different set of tools more tailored to the backend and/or
 	// change functionality of existing tools.
 	PrometheusBackends = []string{
+		"amp",
 		"prometheus",
 		"thanos",
 	}
@@ -54,6 +55,11 @@ var (
 	// thanosToolset contains all the tools to interact with thanos as a
 	// prometheus HTTP API compatible backend.
 	thanosToolset map[string]toolRegistration
+
+	// ampToolset contains tools compatible with Amazon Managed Prometheus
+	// (AMP).  AMP runs on Cortex and exposes a subset of the Prometheus
+	// HTTP API focused on querying.
+	ampToolset map[string]toolRegistration
 )
 
 // initPrometheusToolset initializes the prometheus toolset map. Called during
@@ -243,6 +249,8 @@ func initPrometheusToolset() {
 //	- list_stores
 //
 //	Changed
+//	(none)
+//
 //	Removed
 //	- alertmanagers
 //	- config
@@ -287,9 +295,58 @@ func initThanosToolset() {
 	}
 }
 
+// initAMPToolset initializes the Amazon Managed Prometheus (AMP) toolset map.
+// Called during init to avoid initialization cycles and control initialization order.
+//
+// AMP runs on Cortex and exposes only the query-related subset of the
+// Prometheus HTTP API.
+//
+// Tool difference from prometheusToolset:
+//
+//	Added
+//	(none)
+//
+//	Changed
+//	(none)
+//
+//	Removed
+//	- alertmanagers
+//	- build_info
+//	- clean_tombstones
+//	- config
+//	- delete_series
+//	- exemplar_query
+//	- flags
+//	- healthy
+//	- list_alerts
+//	- list_rules
+//	- list_targets
+//	- quit
+//	- ready
+//	- reload
+//	- runtime_info
+//	- snapshot
+//	- targets_metadata
+//	- tsdb_stats
+//	- wal_replay_status
+func initAMPToolset() {
+	ampToolset = map[string]toolRegistration{
+		"query":           prometheusToolset["query"],
+		"range_query":     prometheusToolset["range_query"],
+		"series":          prometheusToolset["series"],
+		"label_names":     prometheusToolset["label_names"],
+		"label_values":    prometheusToolset["label_values"],
+		"metric_metadata": prometheusToolset["metric_metadata"],
+		"docs_list":       prometheusToolset["docs_list"],
+		"docs_read":       prometheusToolset["docs_read"],
+		"docs_search":     prometheusToolset["docs_search"],
+	}
+}
+
 func init() {
 	initPrometheusToolset()
 	initThanosToolset()
+	initAMPToolset()
 }
 
 // registerTools registers the given toolset with the MCP server.
@@ -357,6 +414,13 @@ func getToolset(cfg toolsetConfig) map[string]toolRegistration {
 		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
 		backendToolset := make(map[string]toolRegistration)
 		for name, tool := range thanosToolset {
+			backendToolset[name] = tool
+		}
+		toolset = backendToolset
+	case "amp":
+		logger.Info("Setting tools based on provided prometheus backend", "backend", backend)
+		backendToolset := make(map[string]toolRegistration)
+		for name, tool := range ampToolset {
 			backendToolset[name] = tool
 		}
 		toolset = backendToolset

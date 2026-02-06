@@ -144,6 +144,54 @@ func TestGetToolset(t *testing.T) {
 		require.Len(t, toolset, len(prometheusToolset))
 	})
 
+	t.Run("amp backend overrides toolset with query-only tools", func(t *testing.T) {
+		cfg := toolsetConfig{
+			enabledTools:      []string{"all"},
+			prometheusBackend: "amp",
+			Logger:            slog.Default(),
+		}
+
+		toolset := getToolset(cfg)
+		names := getToolNames(toolset)
+
+		// AMP query tools should be present.
+		require.Contains(t, names, "query")
+		require.Contains(t, names, "range_query")
+		require.Contains(t, names, "series")
+		require.Contains(t, names, "label_names")
+		require.Contains(t, names, "label_values")
+		require.Contains(t, names, "metric_metadata")
+
+		// AMP docs tools should be present.
+		require.Contains(t, names, "docs_list")
+		require.Contains(t, names, "docs_read")
+		require.Contains(t, names, "docs_search")
+
+		// Prometheus-only tools should NOT be present.
+		require.NotContains(t, names, "exemplar_query")
+		require.NotContains(t, names, "list_targets")
+		require.NotContains(t, names, "targets_metadata")
+		require.NotContains(t, names, "list_rules")
+		require.NotContains(t, names, "list_alerts")
+		require.NotContains(t, names, "alertmanagers")
+		require.NotContains(t, names, "config")
+		require.NotContains(t, names, "flags")
+		require.NotContains(t, names, "runtime_info")
+		require.NotContains(t, names, "build_info")
+		require.NotContains(t, names, "tsdb_stats")
+		require.NotContains(t, names, "wal_replay_status")
+		require.NotContains(t, names, "healthy")
+		require.NotContains(t, names, "ready")
+		require.NotContains(t, names, "reload")
+		require.NotContains(t, names, "quit")
+		require.NotContains(t, names, "clean_tombstones")
+		require.NotContains(t, names, "delete_series")
+		require.NotContains(t, names, "snapshot")
+
+		// Should have exactly the AMP toolset size.
+		require.Len(t, toolset, len(ampToolset))
+	})
+
 	t.Run("unknown backend keeps existing toolset with warning", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"alertmanagers"},
@@ -215,6 +263,19 @@ func TestGetToolset(t *testing.T) {
 		require.NotContains(t, names, "alertmanagers")
 	})
 
+	t.Run("case insensitive backend matching for AMP", func(t *testing.T) {
+		cfg := toolsetConfig{
+			enabledTools:      []string{"all"},
+			prometheusBackend: "AMP",
+			Logger:            slog.Default(),
+		}
+
+		toolset := getToolset(cfg)
+		require.Len(t, toolset, len(ampToolset))
+		require.Contains(t, getToolNames(toolset), "query")
+		require.NotContains(t, getToolNames(toolset), "list_targets")
+	})
+
 	t.Run("nil logger uses default", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"core"},
@@ -261,6 +322,52 @@ func TestToolsetContents(t *testing.T) {
 	t.Run("thanosToolset includes thanos-specific tools", func(t *testing.T) {
 		_, exists := thanosToolset["list_stores"]
 		require.True(t, exists, "thanos toolset should contain list_stores")
+	})
+
+	t.Run("ampToolset contains only query and docs tools", func(t *testing.T) {
+		expectedTools := []string{
+			"query",
+			"range_query",
+			"series",
+			"label_names",
+			"label_values",
+			"metric_metadata",
+			"docs_list",
+			"docs_read",
+			"docs_search",
+		}
+
+		names := getToolNames(ampToolset)
+		require.ElementsMatch(t, expectedTools, names)
+	})
+
+	t.Run("ampToolset excludes all non-query prometheus tools", func(t *testing.T) {
+		unsupportedTools := []string{
+			"exemplar_query",
+			"targets_metadata",
+			"alertmanagers",
+			"flags",
+			"list_alerts",
+			"tsdb_stats",
+			"build_info",
+			"config",
+			"runtime_info",
+			"list_rules",
+			"list_targets",
+			"wal_replay_status",
+			"clean_tombstones",
+			"delete_series",
+			"snapshot",
+			"healthy",
+			"ready",
+			"reload",
+			"quit",
+		}
+
+		for _, tool := range unsupportedTools {
+			_, exists := ampToolset[tool]
+			require.False(t, exists, "amp toolset should not contain %s", tool)
+		}
 	})
 
 	t.Run("all core tools exist in prometheusToolset", func(t *testing.T) {
