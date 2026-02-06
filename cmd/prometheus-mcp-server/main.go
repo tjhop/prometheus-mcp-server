@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
+	"github.com/prometheus/sigv4"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
 	"github.com/tjhop/prometheus-mcp-server/internal/version"
@@ -98,6 +99,35 @@ var (
 		"Path to config file to set Prometheus HTTP client options",
 	).String()
 
+	// AWS SigV4 authentication flags.
+	// When any sigv4 flag is set, the RoundTripper is wrapped with a SigV4
+	// signing round tripper for authenticating against AWS services like
+	// Amazon Managed Prometheus (AMP).
+	flagSigV4Region = kingpin.Flag(
+		"prometheus.sigv4.region",
+		"AWS region for SigV4 authentication. Setting this flag enables SigV4 request signing.",
+	).String()
+
+	flagSigV4AccessKey = kingpin.Flag(
+		"prometheus.sigv4.access-key",
+		"AWS access key for SigV4 authentication. If not provided, the default AWS credential chain is used.",
+	).String()
+
+	flagSigV4SecretKey = kingpin.Flag(
+		"prometheus.sigv4.secret-key",
+		"AWS secret key for SigV4 authentication. If not provided, the default AWS credential chain is used.",
+	).String()
+
+	flagSigV4Profile = kingpin.Flag(
+		"prometheus.sigv4.profile",
+		"AWS credential profile for SigV4 authentication.",
+	).String()
+
+	flagSigV4RoleARN = kingpin.Flag(
+		"prometheus.sigv4.role-arn",
+		"AWS IAM role ARN for SigV4 authentication (for cross-account access via role assumption).",
+	).String()
+
 	flagWebTelemetryPath = kingpin.Flag(
 		"web.telemetry-path",
 		"Path under which to expose metrics.",
@@ -166,6 +196,19 @@ func main() {
 	rt, err := getRoundTripperFromConfig(*flagHttpConfig)
 	if err != nil {
 		logger.Error("Failed to load HTTP config file, using default HTTP round tripper", "err", err)
+	}
+
+	// Optionally wrap the RoundTripper with SigV4 signing for AWS authentication.
+	if sigV4Configured() {
+		sigV4Cfg := buildSigV4Config()
+		sigV4RT, err := sigv4.NewSigV4RoundTripper(sigV4Cfg, rt)
+		if err != nil {
+			logger.Error("Failed to create SigV4 round tripper, using existing round tripper", "err", err)
+		}
+		if sigV4RT != nil {
+			rt = sigV4RT
+			logger.Info("SigV4 authentication enabled", "region", sigV4Cfg.Region, "profile", sigV4Cfg.Profile, "role_arn", sigV4Cfg.RoleARN)
+		}
 	}
 
 	ctx, rootCtxCancel := context.WithCancel(context.Background())
@@ -413,4 +456,24 @@ func getRoundTripperFromConfig(httpConfig string) (http.RoundTripper, error) {
 	}
 
 	return rt, nil
+}
+
+// sigV4Configured returns true if any SigV4 flag has been set.
+func sigV4Configured() bool {
+	return *flagSigV4Region != "" ||
+		*flagSigV4AccessKey != "" ||
+		*flagSigV4SecretKey != "" ||
+		*flagSigV4Profile != "" ||
+		*flagSigV4RoleARN != ""
+}
+
+// buildSigV4Config constructs a sigv4.SigV4Config from CLI flags.
+func buildSigV4Config() *sigv4.SigV4Config {
+	return &sigv4.SigV4Config{
+		Region:    *flagSigV4Region,
+		AccessKey: *flagSigV4AccessKey,
+		SecretKey: config_util.Secret(*flagSigV4SecretKey),
+		Profile:   *flagSigV4Profile,
+		RoleARN:   *flagSigV4RoleARN,
+	}
 }

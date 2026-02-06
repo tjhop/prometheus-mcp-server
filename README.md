@@ -244,6 +244,39 @@ An example config can be found [in the examples folder here](./examples/http-con
 Use the `--http.config` command-line flag to provide an HTTP configuration file.
 Please see [Flags](#command-line-flags) for more information.
 
+### AWS SigV4 Authentication (Amazon Managed Prometheus)
+
+The MCP server supports [AWS Signature Version 4 (SigV4)](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html) request signing for authenticating against AWS services like [Amazon Managed Prometheus (AMP)](https://aws.amazon.com/prometheus/).
+SigV4 is configured via the `--prometheus.sigv4.*` flags.
+When any SigV4 flag is set, the HTTP RoundTripper is wrapped with a signing layer using the [`prometheus/sigv4`](https://github.com/prometheus/sigv4) package.
+If explicit credentials are not provided, the standard [AWS credential chain](https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html) is used (environment variables, shared credentials file, EC2 instance role, EKS IRSA, etc.).
+
+Example usage with AMP:
+
+```shell
+# Using default AWS credential chain
+prometheus-mcp-server \
+  --prometheus.url="https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxxxx/api/v1" \
+  --prometheus.sigv4.region=us-east-1 \
+  --prometheus.backend=amp
+
+# Using a named AWS profile
+prometheus-mcp-server \
+  --prometheus.url="https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxxxx/api/v1" \
+  --prometheus.sigv4.region=us-east-1 \
+  --prometheus.sigv4.profile=my-profile \
+  --prometheus.backend=amp
+
+# Cross-account access via role assumption
+prometheus-mcp-server \
+  --prometheus.url="https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxxxx/api/v1" \
+  --prometheus.sigv4.region=us-east-1 \
+  --prometheus.sigv4.role-arn=arn:aws:iam::123456789012:role/PrometheusReadOnly \
+  --prometheus.backend=amp
+```
+
+Please see [Flags](#command-line-flags) for the full list of SigV4 flags and their corresponding environment variables.
+
 ### Securing the MCP Server Endpoints
 
 The MCP server supports [Prometheus Web Configuration files](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) files to expose it's endpoints behind optional basic auth and custom TLS configs.
