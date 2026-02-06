@@ -162,15 +162,59 @@ Qualifications and support criteria are still under consideration, please open a
 
 ##### Prometheus Backend Implementation Differences
 
-| Backend | Tool | Add/Remove/Change | Notes |
-| --- | --- | --- | --- |
-| `prometheus` | n/a | none | Standard prometheus tools. Functionally equivalent to `--mcp.tools="all"`. The default MCP server toolset. |
-| [`thanos`](https://thanos.io/) | `alertmanagers` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
-| [`thanos`](https://thanos.io/) | `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
-| [`thanos`](https://thanos.io/) | `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
-| [`thanos`](https://thanos.io/) | `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
-| [`thanos`](https://thanos.io/) | `reload` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
-| [`thanos`](https://thanos.io/) | `quit` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+The default `prometheus` backend includes all standard Prometheus tools and is functionally equivalent to `--mcp.tools="all"`.
+
+<details>
+<summary>Thanos</summary>
+
+| Tool | Add/Remove/Change | Notes |
+| --- | --- | --- |
+| `alertmanagers` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| `config` | remove | Thanos does not use a centralized config, so it doesn't implement the endpoint and the tool returns a `404`. |
+| `wal_replay_status` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| `reload` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| `quit` | remove | Thanos does not implement the endpoint and the tool returns a `404`. |
+| `list_stores` | add | Thanos provides an additional endpoint to list store API servers. |
+
+</details>
+
+<details>
+<summary>Amazon Managed Prometheus (AMP)</summary>
+
+AMP is a fully managed, Cortex-based service. Only query and metadata endpoints are available via the [data plane API](https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-APIReference.html). Requires [SigV4 authentication](#aws-sigv4-authentication-amazon-managed-prometheus).
+
+| Tool | Add/Remove/Change | Notes |
+| --- | --- | --- |
+| `query` | keep | AMP exposes the standard Prometheus query endpoint on its data plane. |
+| `range_query` | keep | AMP exposes the standard Prometheus range query endpoint on its data plane. |
+| `series` | keep | AMP exposes the standard Prometheus series endpoint on its data plane. |
+| `label_names` | keep | AMP exposes the standard Prometheus label names endpoint on its data plane. |
+| `label_values` | keep | AMP exposes the standard Prometheus label values endpoint on its data plane. |
+| `metric_metadata` | keep | AMP exposes the standard Prometheus metric metadata endpoint on its data plane. |
+| `docs_list` | keep | Local MCP server functionality, not dependent on backend. |
+| `docs_read` | keep | Local MCP server functionality, not dependent on backend. |
+| `docs_search` | keep | Local MCP server functionality, not dependent on backend. |
+| `exemplar_query` | remove | AMP's Cortex-based data plane does not expose the exemplars endpoint. |
+| `alertmanagers` | remove | AMP is a managed service; Alertmanager discovery is handled internally and not exposed via the data plane API. |
+| `list_alerts` | remove | AMP manages alerting externally via [Amazon Managed Service for Prometheus ruler](https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-ruler.html); the alerts endpoint is not available on the data plane. |
+| `list_rules` | remove | AMP manages recording and alerting rules externally; the rules endpoint is not available on the data plane. |
+| `list_targets` | remove | AMP is a managed service; scrape target configuration is handled via the [collector/scraper configuration](https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-collector.html) and not exposed via the query data plane. |
+| `targets_metadata` | remove | AMP does not expose scrape target metadata on the data plane. |
+| `config` | remove | AMP is a managed service; server configuration is not exposed via the data plane API. |
+| `flags` | remove | AMP is a managed service; runtime flags are internal to the managed infrastructure and not exposed. |
+| `build_info` | remove | AMP is a managed service; build information is internal to the managed infrastructure and not exposed. |
+| `runtime_info` | remove | AMP is a managed service; runtime information is internal to the managed infrastructure and not exposed. |
+| `tsdb_stats` | remove | AMP manages TSDB internals; storage statistics are not exposed via the data plane API. |
+| `wal_replay_status` | remove | AMP manages WAL internals; replay status is not exposed via the data plane API. |
+| `healthy` | remove | AMP is a managed service; health checking is handled by AWS infrastructure and not meaningful via the data plane. |
+| `ready` | remove | AMP is a managed service; readiness checking is handled by AWS infrastructure and not meaningful via the data plane. |
+| `reload` | remove | AMP is a managed service; configuration reloads are not supported via the data plane API. |
+| `quit` | remove | AMP is a managed service; graceful shutdown is not supported via the data plane API. |
+| `clean_tombstones` | remove | AMP is a managed service; TSDB admin operations are not supported via the data plane API. |
+| `delete_series` | remove | AMP is a managed service; TSDB admin operations are not supported via the data plane API. |
+| `snapshot` | remove | AMP is a managed service; TSDB admin operations are not supported via the data plane API. |
+
+</details>
 
 ### Resources
 
@@ -434,10 +478,10 @@ Flags:
       --mcp.transport="stdio"    The type of transport to use for
                                  the MCP server [`stdio`, `http`].
                                  ($PROMETHEUS_MCP_SERVER_MCP_TRANSPORT)
-      --prometheus.backend=PROMETHEUS.BACKEND  
+      --prometheus.backend=PROMETHEUS.BACKEND
                                  Customize the toolset for a specific
                                  Prometheus API compatible backend.
-                                 Supported backends include: prometheus,thanos
+                                 Supported backends include: amp,prometheus,thanos
                                  ($PROMETHEUS_MCP_SERVER_PROMETHEUS_BACKEND)
       --prometheus.url="http://127.0.0.1:9090"  
                                  URL of the Prometheus instance to connect to
@@ -456,6 +500,30 @@ Flags:
       --http.config=HTTP.CONFIG  Path to config file to set
                                  Prometheus HTTP client options
                                  ($PROMETHEUS_MCP_SERVER_HTTP_CONFIG)
+      --prometheus.sigv4.region=PROMETHEUS.SIGV4.REGION
+                                 AWS region for SigV4 authentication.
+                                 Setting this flag enables SigV4
+                                 request signing.
+                                 ($PROMETHEUS_MCP_SERVER_PROMETHEUS_SIGV4_REGION)
+      --prometheus.sigv4.access-key=PROMETHEUS.SIGV4.ACCESS-KEY
+                                 AWS access key for SigV4 authentication.
+                                 If not provided, the default AWS
+                                 credential chain is used.
+                                 ($PROMETHEUS_MCP_SERVER_PROMETHEUS_SIGV4_ACCESS_KEY)
+      --prometheus.sigv4.secret-key=PROMETHEUS.SIGV4.SECRET-KEY
+                                 AWS secret key for SigV4 authentication.
+                                 If not provided, the default AWS
+                                 credential chain is used.
+                                 ($PROMETHEUS_MCP_SERVER_PROMETHEUS_SIGV4_SECRET_KEY)
+      --prometheus.sigv4.profile=PROMETHEUS.SIGV4.PROFILE
+                                 AWS credential profile for SigV4
+                                 authentication.
+                                 ($PROMETHEUS_MCP_SERVER_PROMETHEUS_SIGV4_PROFILE)
+      --prometheus.sigv4.role-arn=PROMETHEUS.SIGV4.ROLE-ARN
+                                 AWS IAM role ARN for SigV4
+                                 authentication (for cross-account
+                                 access via role assumption).
+                                 ($PROMETHEUS_MCP_SERVER_PROMETHEUS_SIGV4_ROLE_ARN)
       --web.telemetry-path="/metrics"  
                                  Path under which to expose metrics.
                                  ($PROMETHEUS_MCP_SERVER_WEB_TELEMETRY_PATH)
