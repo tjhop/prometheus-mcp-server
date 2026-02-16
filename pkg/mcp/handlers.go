@@ -303,94 +303,65 @@ func (s *ServerContainer) TargetsMetadataHandler(ctx context.Context, req *mcp.C
 	return newToolTextResult(result), nil, nil
 }
 
-// AlertmanagersHandler handles the alertmanagers tool.
-func (s *ServerContainer) AlertmanagersHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.alertmanagersAPICall(ctx)
+// callAPIAndReturnToolResult encapsulates the common pattern for simple tool
+// handlers that call a single API method and return the result as a tool text
+// response.
+func callAPIAndReturnToolResult(ctx context.Context, call func(context.Context) (string, error), errPrefix string) (*mcp.CallToolResult, any, error) {
+	result, err := call(ctx)
 	if err != nil {
-		return newToolErrorResult("failed making alertmanagers api call: " + err.Error()), nil, nil
+		return newToolErrorResult(errPrefix + err.Error()), nil, nil
 	}
 	return newToolTextResult(result), nil, nil
+}
+
+// AlertmanagersHandler handles the alertmanagers tool.
+func (s *ServerContainer) AlertmanagersHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
+	return callAPIAndReturnToolResult(ctx, s.alertmanagersAPICall, "failed making alertmanagers api call: ")
 }
 
 // FlagsHandler handles the flags tool.
 func (s *ServerContainer) FlagsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.flagsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making flags api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.flagsAPICall, "failed making flags api call: ")
 }
 
 // ListAlertsHandler handles the list alerts tool.
 func (s *ServerContainer) ListAlertsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.listAlertsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making list alerts api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.listAlertsAPICall, "failed making list alerts api call: ")
 }
 
 // TsdbStatsHandler handles the TSDB stats tool.
 func (s *ServerContainer) TsdbStatsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.tsdbStatsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making TSDB stats api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.tsdbStatsAPICall, "failed making TSDB stats api call: ")
 }
 
 // BuildInfoHandler handles the build info tool.
 func (s *ServerContainer) BuildInfoHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.buildinfoAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making build info api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.buildinfoAPICall, "failed making build info api call: ")
 }
 
 // ConfigHandler handles the config tool.
 func (s *ServerContainer) ConfigHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.configAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making config api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.configAPICall, "failed making config api call: ")
 }
 
 // RuntimeInfoHandler handles the runtime info tool.
 func (s *ServerContainer) RuntimeInfoHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.runtimeinfoAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making runtime info api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.runtimeinfoAPICall, "failed making runtime info api call: ")
 }
 
 // ListRulesHandler handles the list rules tool.
 func (s *ServerContainer) ListRulesHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.rulesAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making rules api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.rulesAPICall, "failed making rules api call: ")
 }
 
 // ListTargetsHandler handles the list targets tool.
 func (s *ServerContainer) ListTargetsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.targetsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making targets api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.targetsAPICall, "failed making targets api call: ")
 }
 
 // WalReplayHandler handles the WAL replay status tool.
 func (s *ServerContainer) WalReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.walReplayAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making WAL replay api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.walReplayAPICall, "failed making WAL replay api call: ")
 }
 
 // Prometheus TSDB Admin tool handlers
