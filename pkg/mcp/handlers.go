@@ -601,7 +601,21 @@ func (s *ServerContainer) ThanosStoresHandler(ctx context.Context, req *mcp.Call
 	return newToolTextResult(result), nil, nil
 }
 
-// Prometheus API call methods on ServiceContainer
+// Prometheus API call methods on ServerContainer
+
+// formatTruncatedQueryAPIResponse applies line-based truncation to a result string, adds
+// a warning if truncated, wraps it in a queryAPIResponse with optional
+// warnings, and formats the output.
+func (s *ServerContainer) formatTruncatedQueryAPIResponse(resultString string, warnings promv1.Warnings, truncationLimit int) (string, error) {
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
+	return s.FormatOutput(queryAPIResponse{
+		Result:   resultString,
+		Warnings: warnings,
+	})
+}
 
 func (s *ServerContainer) queryAPICall(ctx context.Context, query string, ts time.Time, truncationLimit int) (string, error) {
 	client, _ := s.GetAPIClient(ctx)
@@ -617,17 +631,7 @@ func (s *ServerContainer) queryAPICall(ctx context.Context, query string, ts tim
 		return "", fmt.Errorf("failed to execute instant query: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := result.String()
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(result.String(), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) rangeQueryAPICall(ctx context.Context, query string, start, end time.Time, step time.Duration, truncationLimit int) (string, error) {
@@ -644,17 +648,7 @@ func (s *ServerContainer) rangeQueryAPICall(ctx context.Context, query string, s
 		return "", fmt.Errorf("failed to execute range query: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := result.String()
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(result.String(), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) exemplarQueryAPICall(ctx context.Context, query string, start, end time.Time, truncationLimit int) (string, error) {
@@ -680,18 +674,7 @@ func (s *ServerContainer) exemplarQueryAPICall(ctx context.Context, query string
 		resultSB.Write(b)
 		resultSB.WriteString("\n")
 	}
-	resultString := resultSB.String()
-
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	queryResp := queryAPIResponse{
-		Result:   resultString,
-		Warnings: nil,
-	}
-
-	return s.FormatOutput(queryResp)
+	return s.formatTruncatedQueryAPIResponse(resultSB.String(), nil, truncationLimit)
 }
 
 func (s *ServerContainer) seriesAPICall(ctx context.Context, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -713,17 +696,7 @@ func (s *ServerContainer) seriesAPICall(ctx context.Context, matches []string, s
 		lsets[i] = lset.String()
 	}
 
-	resultString := strings.Join(lsets, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(lsets, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) labelNamesAPICall(ctx context.Context, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -740,17 +713,7 @@ func (s *ServerContainer) labelNamesAPICall(ctx context.Context, matches []strin
 		return "", fmt.Errorf("failed to get label names: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := strings.Join(result, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(result, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) labelValuesAPICall(ctx context.Context, label string, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -772,17 +735,7 @@ func (s *ServerContainer) labelValuesAPICall(ctx context.Context, label string, 
 		lvals[i] = string(lval)
 	}
 
-	resultString := strings.Join(lvals, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(lvals, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) metricMetadataAPICall(ctx context.Context, metric, limit string) (string, error) {
