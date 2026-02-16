@@ -904,191 +904,100 @@ func (s *ServerContainer) targetsMetadataAPICall(ctx context.Context, matchTarge
 	return encodedData, nil
 }
 
-func (s *ServerContainer) alertmanagersAPICall(ctx context.Context) (string, error) {
+// doSimpleAPICall encapsulates the common pattern for Prometheus API calls that
+// take no parameters beyond context: get client, set timeout, record metrics,
+// call the API, and format the result.
+func (s *ServerContainer) doSimpleAPICall(ctx context.Context, path, errMsg string, call func(context.Context, promv1.API) (any, error)) (string, error) {
 	client, _ := s.GetAPIClient(ctx)
 	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
 	defer cancel()
 
-	path := "/api/v1/alertmanagers"
 	startTs := time.Now()
-	ams, err := client.AlertManagers(ctx)
+	result, err := call(ctx, client)
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alertmanager status from Prometheus: %w", wrapErrorIfNotFound(err, path))
+		return "", fmt.Errorf("%s: %w", errMsg, wrapErrorIfNotFound(err, path))
 	}
 
-	return s.FormatOutput(ams)
+	return s.FormatOutput(result)
+}
+
+func (s *ServerContainer) alertmanagersAPICall(ctx context.Context) (string, error) {
+	return s.doSimpleAPICall(ctx, "/api/v1/alertmanagers", "failed to get alertmanager status from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.AlertManagers(ctx)
+		})
 }
 
 func (s *ServerContainer) flagsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/flags"
-	startTs := time.Now()
-	flags, err := client.Flags(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime flags from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(flags)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/flags", "failed to get runtime flags from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Flags(ctx)
+		})
 }
 
 func (s *ServerContainer) listAlertsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/alerts"
-	startTs := time.Now()
-	alerts, err := client.Alerts(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alerts from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(alerts)
+	return s.doSimpleAPICall(ctx, "/api/v1/alerts", "failed to get alerts from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Alerts(ctx)
+		})
 }
 
 func (s *ServerContainer) tsdbStatsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/tsdb"
-	startTs := time.Now()
-	tsdbStats, err := client.TSDB(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get tsdb stats from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(tsdbStats)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/tsdb", "failed to get tsdb stats from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.TSDB(ctx)
+		})
 }
 
 func (s *ServerContainer) buildinfoAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/buildinfo"
-	startTs := time.Now()
-	bi, err := client.Buildinfo(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get build info from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(bi)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/buildinfo", "failed to get build info from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Buildinfo(ctx)
+		})
 }
 
 func (s *ServerContainer) configAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/config"
-	startTs := time.Now()
-	cfg, err := client.Config(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get configuration from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(cfg)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/config", "failed to get configuration from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Config(ctx)
+		})
 }
 
 func (s *ServerContainer) runtimeinfoAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/runtimeinfo"
-	startTs := time.Now()
-	ri, err := client.Runtimeinfo(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime info from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(ri)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/runtimeinfo", "failed to get runtime info from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Runtimeinfo(ctx)
+		})
 }
 
 func (s *ServerContainer) rulesAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/rules"
-	startTs := time.Now()
-	rules, err := client.Rules(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get rules from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(rules)
+	return s.doSimpleAPICall(ctx, "/api/v1/rules", "failed to get rules from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Rules(ctx)
+		})
 }
 
 func (s *ServerContainer) targetsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/targets"
-	startTs := time.Now()
-	targets, err := client.Targets(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get targets from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(targets)
+	return s.doSimpleAPICall(ctx, "/api/v1/targets", "failed to get targets from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Targets(ctx)
+		})
 }
 
 func (s *ServerContainer) walReplayAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/walreplay"
-	startTs := time.Now()
-	wal, err := client.WalReplay(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get WAL replay status from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(wal)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/walreplay", "failed to get WAL replay status from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.WalReplay(ctx)
+		})
 }
 
 func (s *ServerContainer) cleanTombstonesAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/admin/tsdb/clean_tombstones"
-	startTs := time.Now()
-	err := client.CleanTombstones(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to clean tombstones from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return "success", nil
+	return s.doSimpleAPICall(ctx, "/api/v1/admin/tsdb/clean_tombstones", "failed to clean tombstones from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return "success", client.CleanTombstones(ctx)
+		})
 }
 
 func (s *ServerContainer) deleteSeriesAPICall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
