@@ -465,13 +465,8 @@ func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
 		return nil, fmt.Errorf("failed to search docs index: %w", err)
 	}
 
-	hits := searchRes.Hits
-	if len(hits) > limit {
-		hits = hits[:limit]
-	}
-
 	var result []string
-	for _, hit := range hits {
+	for _, hit := range searchRes.Hits {
 		result = append(result, hit.ID)
 	}
 	return result, nil
