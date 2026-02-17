@@ -123,17 +123,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 	}
 	instrx := string(coreInstructions)
 
-	container, err := newServerContainer(serverContainerConfig{
-		Logger:                logger,
-		PrometheusURL:         cfg.PrometheusURL,
-		RoundTripper:          cfg.RoundTripper,
-		TruncationLimit:       cfg.TruncationLimit,
-		ToonOutputEnabled:     cfg.ToonOutputEnabled,
-		TSDBAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,
-		APITimeout:            cfg.PrometheusTimeout,
-		DocsFS:                cfg.DocsFS,
-		ClientLoggingEnabled:  cfg.ClientLoggingEnabled,
-	})
+	container, err := newServerContainer(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -255,21 +245,8 @@ type ServerContainer struct {
 	docs atomic.Pointer[docsState]
 }
 
-// serverContainerConfig holds configuration for creating a ServerContainer.
-type serverContainerConfig struct {
-	Logger                *slog.Logger
-	PrometheusURL         string
-	RoundTripper          http.RoundTripper
-	TruncationLimit       int
-	ToonOutputEnabled     bool
-	TSDBAdminToolsEnabled bool
-	APITimeout            time.Duration
-	DocsFS                fs.FS
-	ClientLoggingEnabled  bool
-}
-
 // newServerContainer creates a new ServerContainer with the given configuration.
-func newServerContainer(cfg serverContainerConfig) (*ServerContainer, error) {
+func newServerContainer(cfg ServerConfig) (*ServerContainer, error) {
 	client, err := mcpProm.NewAPIClient(cfg.PrometheusURL, cfg.RoundTripper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default API client: %w", err)
@@ -283,7 +260,7 @@ func newServerContainer(cfg serverContainerConfig) (*ServerContainer, error) {
 		truncationLimit:       cfg.TruncationLimit,
 		toonOutputEnabled:     cfg.ToonOutputEnabled,
 		tsdbAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,
-		apiTimeout:            cfg.APITimeout,
+		apiTimeout:            cfg.PrometheusTimeout,
 		clientLoggingEnabled:  cfg.ClientLoggingEnabled,
 	}
 
