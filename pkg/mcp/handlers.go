@@ -129,6 +129,22 @@ func parseTimeWithDefault(s string, defaultVal time.Time) (time.Time, error) {
 	return mcpProm.ParseTimestampOrDuration(s)
 }
 
+// parseTimeRangeInputWithDefaults parses start and end time strings from a
+// TimeRangeInput, applying the given defaults when either value is empty. This
+// consolidates the repeated pattern used by handlers with independent
+// start/end defaults.
+func parseTimeRangeInputWithDefaults(tr TimeRangeInput, startDefault, endDefault time.Time) (start, end time.Time, err error) {
+	start, err = parseTimeWithDefault(tr.StartTime, startDefault)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to parse start_time: %w", err)
+	}
+	end, err = parseTimeWithDefault(tr.EndTime, endDefault)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to parse end_time: %w", err)
+	}
+	return start, end, nil
+}
+
 // Tool handler methods for ServerContainer
 
 // QueryHandler handles the instant query tool.
@@ -219,14 +235,9 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 		return newToolErrorResult("at least one matches parameter is required"), nil, nil
 	}
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -239,14 +250,9 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 
 // LabelNamesHandler handles the label names query tool.
 func (s *ServerContainer) LabelNamesHandler(ctx context.Context, req *mcp.CallToolRequest, input LabelNamesInput) (*mcp.CallToolResult, any, error) {
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -263,14 +269,9 @@ func (s *ServerContainer) LabelValuesHandler(ctx context.Context, req *mcp.CallT
 		return newToolErrorResult("label parameter is required"), nil, nil
 	}
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -393,14 +394,9 @@ func (s *ServerContainer) DeleteSeriesHandler(ctx context.Context, req *mcp.Call
 
 	logger := s.GetToolLogger(req, input)
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	logger.Warn("executing TSDB admin operation: delete series")
