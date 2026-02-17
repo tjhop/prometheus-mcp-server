@@ -234,55 +234,33 @@ func initPrometheusToolset() {
 	}
 }
 
+// thanosRemovedTools lists tools from prometheusToolset that Thanos does not support.
+var thanosRemovedTools = []string{
+	"alertmanagers",
+	"config",
+	"wal_replay_status",
+	"reload",
+	"quit",
+}
+
 // initThanosToolset initializes the thanos toolset map. Called during
 // init to avoid initialization cycles and control initialization order.
 //
-// Tool difference from prometheusToolset:
-//
-//	Added
-//	- list_stores
-//
-//	Changed
-//	Removed
-//	- alertmanagers
-//	- config
-//	- wal_replay_status
-//	- reload
-//	- quit
+// It starts from prometheusToolset, removes unsupported tools, and adds
+// Thanos-specific tools (list_stores).
 func initThanosToolset() {
-	thanosToolset = map[string]toolRegistration{
-		// Most tools work the same in Thanos as in Prometheus in code,
-		// so add them directly from the prometheus tool map.
-		"query":            prometheusToolset["query"],
-		"range_query":      prometheusToolset["range_query"],
-		"exemplar_query":   prometheusToolset["exemplar_query"],
-		"series":           prometheusToolset["series"],
-		"label_names":      prometheusToolset["label_names"],
-		"label_values":     prometheusToolset["label_values"],
-		"metric_metadata":  prometheusToolset["metric_metadata"],
-		"targets_metadata": prometheusToolset["targets_metadata"],
-		"flags":            prometheusToolset["flags"],
-		"list_alerts":      prometheusToolset["list_alerts"],
-		"tsdb_stats":       prometheusToolset["tsdb_stats"],
-		"build_info":       prometheusToolset["build_info"],
-		"runtime_info":     prometheusToolset["runtime_info"],
-		"list_rules":       prometheusToolset["list_rules"],
-		"list_targets":     prometheusToolset["list_targets"],
-		"clean_tombstones": prometheusToolset["clean_tombstones"],
-		"delete_series":    prometheusToolset["delete_series"],
-		"snapshot":         prometheusToolset["snapshot"],
-		"healthy":          prometheusToolset["healthy"],
-		"ready":            prometheusToolset["ready"],
-		"docs_list":        prometheusToolset["docs_list"],
-		"docs_read":        prometheusToolset["docs_read"],
-		"docs_search":      prometheusToolset["docs_search"],
+	thanosToolset = make(map[string]toolRegistration)
+	for name, tool := range prometheusToolset {
+		if !slices.Contains(thanosRemovedTools, name) {
+			thanosToolset[name] = tool
+		}
+	}
 
-		// Thanos-specific tools.
-		"list_stores": {
-			tool: thanosStoresToolDef,
-			register: func(s *mcp.Server, c *ServerContainer) {
-				mcp.AddTool(s, thanosStoresToolDef, c.ThanosStoresHandler)
-			},
+	// Add Thanos-specific tools.
+	thanosToolset["list_stores"] = toolRegistration{
+		tool: thanosStoresToolDef,
+		register: func(s *mcp.Server, c *ServerContainer) {
+			mcp.AddTool(s, thanosStoresToolDef, c.ThanosStoresHandler)
 		},
 	}
 }
