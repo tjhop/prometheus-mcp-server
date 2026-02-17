@@ -129,6 +129,22 @@ func parseTimeWithDefault(s string, defaultVal time.Time) (time.Time, error) {
 	return mcpProm.ParseTimestampOrDuration(s)
 }
 
+// parseTimeRangeInputWithDefaults parses start and end time strings from a
+// TimeRangeInput, applying the given defaults when either value is empty. This
+// consolidates the repeated pattern used by handlers with independent
+// start/end defaults.
+func parseTimeRangeInputWithDefaults(tr TimeRangeInput, startDefault, endDefault time.Time) (start, end time.Time, err error) {
+	start, err = parseTimeWithDefault(tr.StartTime, startDefault)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to parse start_time: %w", err)
+	}
+	end, err = parseTimeWithDefault(tr.EndTime, endDefault)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to parse end_time: %w", err)
+	}
+	return start, end, nil
+}
+
 // Tool handler methods for ServerContainer
 
 // QueryHandler handles the instant query tool.
@@ -137,13 +153,9 @@ func (s *ServerContainer) QueryHandler(ctx context.Context, req *mcp.CallToolReq
 		return newToolErrorResult("query parameter is required"), nil, nil
 	}
 
-	ts := time.Now()
-	if input.Timestamp != "" {
-		parsedTs, err := mcpProm.ParseTimestampOrDuration(input.Timestamp)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse timestamp: %v", err)), nil, nil
-		}
-		ts = parsedTs
+	ts, err := parseTimeWithDefault(input.Timestamp, time.Now())
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse timestamp: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -223,14 +235,9 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 		return newToolErrorResult("at least one matches parameter is required"), nil, nil
 	}
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -243,14 +250,9 @@ func (s *ServerContainer) SeriesHandler(ctx context.Context, req *mcp.CallToolRe
 
 // LabelNamesHandler handles the label names query tool.
 func (s *ServerContainer) LabelNamesHandler(ctx context.Context, req *mcp.CallToolRequest, input LabelNamesInput) (*mcp.CallToolResult, any, error) {
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -267,14 +269,9 @@ func (s *ServerContainer) LabelValuesHandler(ctx context.Context, req *mcp.CallT
 		return newToolErrorResult("label parameter is required"), nil, nil
 	}
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
@@ -303,94 +300,65 @@ func (s *ServerContainer) TargetsMetadataHandler(ctx context.Context, req *mcp.C
 	return newToolTextResult(result), nil, nil
 }
 
-// AlertmanagersHandler handles the alertmanagers tool.
-func (s *ServerContainer) AlertmanagersHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.alertmanagersAPICall(ctx)
+// callAPIAndReturnToolResult encapsulates the common pattern for simple tool
+// handlers that call a single API method and return the result as a tool text
+// response.
+func callAPIAndReturnToolResult(ctx context.Context, call func(context.Context) (string, error), errPrefix string) (*mcp.CallToolResult, any, error) {
+	result, err := call(ctx)
 	if err != nil {
-		return newToolErrorResult("failed making alertmanagers api call: " + err.Error()), nil, nil
+		return newToolErrorResult(errPrefix + err.Error()), nil, nil
 	}
 	return newToolTextResult(result), nil, nil
+}
+
+// AlertmanagersHandler handles the alertmanagers tool.
+func (s *ServerContainer) AlertmanagersHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
+	return callAPIAndReturnToolResult(ctx, s.alertmanagersAPICall, "failed making alertmanagers api call: ")
 }
 
 // FlagsHandler handles the flags tool.
 func (s *ServerContainer) FlagsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.flagsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making flags api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.flagsAPICall, "failed making flags api call: ")
 }
 
 // ListAlertsHandler handles the list alerts tool.
 func (s *ServerContainer) ListAlertsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.listAlertsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making list alerts api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.listAlertsAPICall, "failed making list alerts api call: ")
 }
 
 // TsdbStatsHandler handles the TSDB stats tool.
 func (s *ServerContainer) TsdbStatsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.tsdbStatsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making TSDB stats api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.tsdbStatsAPICall, "failed making TSDB stats api call: ")
 }
 
 // BuildInfoHandler handles the build info tool.
 func (s *ServerContainer) BuildInfoHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.buildinfoAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making build info api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.buildinfoAPICall, "failed making build info api call: ")
 }
 
 // ConfigHandler handles the config tool.
 func (s *ServerContainer) ConfigHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.configAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making config api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.configAPICall, "failed making config api call: ")
 }
 
 // RuntimeInfoHandler handles the runtime info tool.
 func (s *ServerContainer) RuntimeInfoHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.runtimeinfoAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making runtime info api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.runtimeinfoAPICall, "failed making runtime info api call: ")
 }
 
 // ListRulesHandler handles the list rules tool.
 func (s *ServerContainer) ListRulesHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.rulesAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making rules api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.rulesAPICall, "failed making rules api call: ")
 }
 
 // ListTargetsHandler handles the list targets tool.
 func (s *ServerContainer) ListTargetsHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.targetsAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making targets api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.targetsAPICall, "failed making targets api call: ")
 }
 
 // WalReplayHandler handles the WAL replay status tool.
 func (s *ServerContainer) WalReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.walReplayAPICall(ctx)
-	if err != nil {
-		return newToolErrorResult("failed making WAL replay api call: " + err.Error()), nil, nil
-	}
-	return newToolTextResult(result), nil, nil
+	return callAPIAndReturnToolResult(ctx, s.walReplayAPICall, "failed making WAL replay api call: ")
 }
 
 // Prometheus TSDB Admin tool handlers
@@ -426,14 +394,9 @@ func (s *ServerContainer) DeleteSeriesHandler(ctx context.Context, req *mcp.Call
 
 	logger := s.GetToolLogger(req, input)
 
-	endTs, err := parseTimeWithDefault(input.EndTime, time.Time{})
+	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
 	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse end_time: %v", err)), nil, nil
-	}
-
-	startTs, err := parseTimeWithDefault(input.StartTime, time.Time{})
-	if err != nil {
-		return newToolErrorResult(fmt.Sprintf("failed to parse start_time: %v", err)), nil, nil
+		return newToolErrorResult(err.Error()), nil, nil
 	}
 
 	logger.Warn("executing TSDB admin operation: delete series")
@@ -630,7 +593,21 @@ func (s *ServerContainer) ThanosStoresHandler(ctx context.Context, req *mcp.Call
 	return newToolTextResult(result), nil, nil
 }
 
-// Prometheus API call methods on ServiceContainer
+// Prometheus API call methods on ServerContainer
+
+// formatTruncatedQueryAPIResponse applies line-based truncation to a result string, adds
+// a warning if truncated, wraps it in a queryAPIResponse with optional
+// warnings, and formats the output.
+func (s *ServerContainer) formatTruncatedQueryAPIResponse(resultString string, warnings promv1.Warnings, truncationLimit int) (string, error) {
+	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
+	if truncated {
+		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
+	}
+	return s.FormatOutput(queryAPIResponse{
+		Result:   resultString,
+		Warnings: warnings,
+	})
+}
 
 func (s *ServerContainer) queryAPICall(ctx context.Context, query string, ts time.Time, truncationLimit int) (string, error) {
 	client, _ := s.GetAPIClient(ctx)
@@ -646,17 +623,7 @@ func (s *ServerContainer) queryAPICall(ctx context.Context, query string, ts tim
 		return "", fmt.Errorf("failed to execute instant query: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := result.String()
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(result.String(), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) rangeQueryAPICall(ctx context.Context, query string, start, end time.Time, step time.Duration, truncationLimit int) (string, error) {
@@ -673,17 +640,7 @@ func (s *ServerContainer) rangeQueryAPICall(ctx context.Context, query string, s
 		return "", fmt.Errorf("failed to execute range query: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := result.String()
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(result.String(), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) exemplarQueryAPICall(ctx context.Context, query string, start, end time.Time, truncationLimit int) (string, error) {
@@ -709,18 +666,7 @@ func (s *ServerContainer) exemplarQueryAPICall(ctx context.Context, query string
 		resultSB.Write(b)
 		resultSB.WriteString("\n")
 	}
-	resultString := resultSB.String()
-
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	queryResp := queryAPIResponse{
-		Result:   resultString,
-		Warnings: nil,
-	}
-
-	return s.FormatOutput(queryResp)
+	return s.formatTruncatedQueryAPIResponse(resultSB.String(), nil, truncationLimit)
 }
 
 func (s *ServerContainer) seriesAPICall(ctx context.Context, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -742,17 +688,7 @@ func (s *ServerContainer) seriesAPICall(ctx context.Context, matches []string, s
 		lsets[i] = lset.String()
 	}
 
-	resultString := strings.Join(lsets, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(lsets, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) labelNamesAPICall(ctx context.Context, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -769,17 +705,7 @@ func (s *ServerContainer) labelNamesAPICall(ctx context.Context, matches []strin
 		return "", fmt.Errorf("failed to get label names: %w", wrapErrorIfNotFound(err, path))
 	}
 
-	resultString := strings.Join(result, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(result, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) labelValuesAPICall(ctx context.Context, label string, matches []string, start, end time.Time, truncationLimit int) (string, error) {
@@ -801,17 +727,7 @@ func (s *ServerContainer) labelValuesAPICall(ctx context.Context, label string, 
 		lvals[i] = string(lval)
 	}
 
-	resultString := strings.Join(lvals, "\n")
-	truncatedResult, truncated := truncateStringByLines(resultString, truncationLimit)
-	if truncated {
-		resultString = truncatedResult + displayTruncationWarning(truncationLimit)
-	}
-	res := queryAPIResponse{
-		Result:   resultString,
-		Warnings: warnings,
-	}
-
-	return s.FormatOutput(res)
+	return s.formatTruncatedQueryAPIResponse(strings.Join(lvals, "\n"), warnings, truncationLimit)
 }
 
 func (s *ServerContainer) metricMetadataAPICall(ctx context.Context, metric, limit string) (string, error) {
@@ -904,191 +820,100 @@ func (s *ServerContainer) targetsMetadataAPICall(ctx context.Context, matchTarge
 	return encodedData, nil
 }
 
-func (s *ServerContainer) alertmanagersAPICall(ctx context.Context) (string, error) {
+// doSimpleAPICall encapsulates the common pattern for Prometheus API calls that
+// take no parameters beyond context: get client, set timeout, record metrics,
+// call the API, and format the result.
+func (s *ServerContainer) doSimpleAPICall(ctx context.Context, path, errMsg string, call func(context.Context, promv1.API) (any, error)) (string, error) {
 	client, _ := s.GetAPIClient(ctx)
 	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
 	defer cancel()
 
-	path := "/api/v1/alertmanagers"
 	startTs := time.Now()
-	ams, err := client.AlertManagers(ctx)
+	result, err := call(ctx, client)
 	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
 	if err != nil {
 		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alertmanager status from Prometheus: %w", wrapErrorIfNotFound(err, path))
+		return "", fmt.Errorf("%s: %w", errMsg, wrapErrorIfNotFound(err, path))
 	}
 
-	return s.FormatOutput(ams)
+	return s.FormatOutput(result)
+}
+
+func (s *ServerContainer) alertmanagersAPICall(ctx context.Context) (string, error) {
+	return s.doSimpleAPICall(ctx, "/api/v1/alertmanagers", "failed to get alertmanager status from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.AlertManagers(ctx)
+		})
 }
 
 func (s *ServerContainer) flagsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/flags"
-	startTs := time.Now()
-	flags, err := client.Flags(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime flags from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(flags)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/flags", "failed to get runtime flags from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Flags(ctx)
+		})
 }
 
 func (s *ServerContainer) listAlertsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/alerts"
-	startTs := time.Now()
-	alerts, err := client.Alerts(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get alerts from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(alerts)
+	return s.doSimpleAPICall(ctx, "/api/v1/alerts", "failed to get alerts from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Alerts(ctx)
+		})
 }
 
 func (s *ServerContainer) tsdbStatsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/tsdb"
-	startTs := time.Now()
-	tsdbStats, err := client.TSDB(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get tsdb stats from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(tsdbStats)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/tsdb", "failed to get tsdb stats from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.TSDB(ctx)
+		})
 }
 
 func (s *ServerContainer) buildinfoAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/buildinfo"
-	startTs := time.Now()
-	bi, err := client.Buildinfo(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get build info from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(bi)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/buildinfo", "failed to get build info from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Buildinfo(ctx)
+		})
 }
 
 func (s *ServerContainer) configAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/config"
-	startTs := time.Now()
-	cfg, err := client.Config(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get configuration from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(cfg)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/config", "failed to get configuration from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Config(ctx)
+		})
 }
 
 func (s *ServerContainer) runtimeinfoAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/runtimeinfo"
-	startTs := time.Now()
-	ri, err := client.Runtimeinfo(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get runtime info from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(ri)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/runtimeinfo", "failed to get runtime info from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Runtimeinfo(ctx)
+		})
 }
 
 func (s *ServerContainer) rulesAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/rules"
-	startTs := time.Now()
-	rules, err := client.Rules(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get rules from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(rules)
+	return s.doSimpleAPICall(ctx, "/api/v1/rules", "failed to get rules from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Rules(ctx)
+		})
 }
 
 func (s *ServerContainer) targetsAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/targets"
-	startTs := time.Now()
-	targets, err := client.Targets(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get targets from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(targets)
+	return s.doSimpleAPICall(ctx, "/api/v1/targets", "failed to get targets from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.Targets(ctx)
+		})
 }
 
 func (s *ServerContainer) walReplayAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/status/walreplay"
-	startTs := time.Now()
-	wal, err := client.WalReplay(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to get WAL replay status from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return s.FormatOutput(wal)
+	return s.doSimpleAPICall(ctx, "/api/v1/status/walreplay", "failed to get WAL replay status from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return client.WalReplay(ctx)
+		})
 }
 
 func (s *ServerContainer) cleanTombstonesAPICall(ctx context.Context) (string, error) {
-	client, _ := s.GetAPIClient(ctx)
-	ctx, cancel := context.WithTimeout(ctx, s.apiTimeout)
-	defer cancel()
-
-	path := "/api/v1/admin/tsdb/clean_tombstones"
-	startTs := time.Now()
-	err := client.CleanTombstones(ctx)
-	metricAPICallDuration.With(prometheus.Labels{"target_path": path}).Observe(time.Since(startTs).Seconds())
-	if err != nil {
-		metricAPICallsFailed.With(prometheus.Labels{"target_path": path}).Inc()
-		return "", fmt.Errorf("failed to clean tombstones from Prometheus: %w", wrapErrorIfNotFound(err, path))
-	}
-
-	return "success", nil
+	return s.doSimpleAPICall(ctx, "/api/v1/admin/tsdb/clean_tombstones", "failed to clean tombstones from Prometheus",
+		func(ctx context.Context, client promv1.API) (any, error) {
+			return "success", client.CleanTombstones(ctx)
+		})
 }
 
 func (s *ServerContainer) deleteSeriesAPICall(ctx context.Context, matches []string, start, end time.Time) (string, error) {
