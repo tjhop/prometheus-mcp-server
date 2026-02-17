@@ -137,13 +137,9 @@ func (s *ServerContainer) QueryHandler(ctx context.Context, req *mcp.CallToolReq
 		return newToolErrorResult("query parameter is required"), nil, nil
 	}
 
-	ts := time.Now()
-	if input.Timestamp != "" {
-		parsedTs, err := mcpProm.ParseTimestampOrDuration(input.Timestamp)
-		if err != nil {
-			return newToolErrorResult(fmt.Sprintf("failed to parse timestamp: %v", err)), nil, nil
-		}
-		ts = parsedTs
+	ts, err := parseTimeWithDefault(input.Timestamp, time.Now())
+	if err != nil {
+		return newToolErrorResult(fmt.Sprintf("failed to parse timestamp: %v", err)), nil, nil
 	}
 
 	truncationLimit := s.GetEffectiveTruncationLimit(input.TruncationLimit)
