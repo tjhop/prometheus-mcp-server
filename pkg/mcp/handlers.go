@@ -538,8 +538,8 @@ func (s *ServerContainer) DocsSearchHandler(ctx context.Context, req *mcp.CallTo
 	docsFilesSeen := make(map[string]struct{})
 	for _, chunkID := range matchingChunkIDs {
 		parts := strings.Split(chunkID, "#")
-		// A valid chunk ID is "filename#section"; skip malformed entries without a '#'.
 		if len(parts) != 2 {
+			// Valid chunk format is `filename#chunkID`.
 			logger.Warn("skipping malformed chunk ID", "chunk_id", chunkID)
 			continue
 		}

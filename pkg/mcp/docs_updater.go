@@ -289,8 +289,13 @@ func extractDocsFromArchive(r io.Reader) (fs.FS, error) {
 			continue
 		}
 
-		// Check if extracting this file would exceed limits.
-		if totalExtracted+hdr.Size > maxDecompressedSize {
+		// Guard against negative sizes (malformed tar entry).
+		if hdr.Size < 0 {
+			continue
+		}
+		// Guard against int64 overflow in comparison by reframing as
+		// subtraction.
+		if hdr.Size > maxDecompressedSize-totalExtracted {
 			return nil, fmt.Errorf("archive exceeds maximum decompressed size: extracted %d bytes, next file (%s, %d bytes) would exceed limit of %d bytes", totalExtracted, hdr.Name, hdr.Size, maxDecompressedSize)
 		}
 		if len(memFS) >= maxFileCount {
