@@ -538,6 +538,11 @@ func (s *ServerContainer) DocsSearchHandler(ctx context.Context, req *mcp.CallTo
 	docsFilesSeen := make(map[string]struct{})
 	for _, chunkID := range matchingChunkIDs {
 		parts := strings.Split(chunkID, "#")
+		// A valid chunk ID is "filename#section"; skip malformed entries without a '#'.
+		if len(parts) != 2 {
+			logger.Warn("skipping malformed chunk ID", "chunk_id", chunkID)
+			continue
+		}
 		name := parts[0]
 		if _, seen := docsFilesSeen[name]; !seen {
 			docsFilesSeen[name] = struct{}{}
@@ -549,10 +554,11 @@ func (s *ServerContainer) DocsSearchHandler(ctx context.Context, req *mcp.CallTo
 
 	// Read all matching files via the resource handler and combine results.
 	resourceResults := make([]*mcp.ReadResourceResult, 0, len(matchingDocsFiles))
-	resourceReq := &mcp.ReadResourceRequest{Params: &mcp.ReadResourceParams{}}
 	for _, file := range matchingDocsFiles {
 		uri := resourcePrefix + "docs/" + url.PathEscape(file)
-		resourceReq.Params.URI = uri
+		// Allocate a fresh request per iteration to avoid shared-struct mutation
+		// across concurrent or sequential calls to DocsReadResourceHandler.
+		resourceReq := &mcp.ReadResourceRequest{Params: &mcp.ReadResourceParams{URI: uri}}
 
 		resourceResult, err := s.DocsReadResourceHandler(ctx, resourceReq)
 		if err != nil {
