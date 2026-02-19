@@ -76,7 +76,7 @@ var (
 			" Supported backends include: "+strings.Join(mcp.PrometheusBackends, ","),
 	).String()
 
-	flagPrometheusUrl = kingpin.Flag(
+	flagPrometheusURL = kingpin.Flag(
 		"prometheus.url",
 		"URL of the Prometheus instance to connect to",
 	).Default("http://127.0.0.1:9090").String()
@@ -93,7 +93,7 @@ var (
 			" To disable truncation limits, set to 0.",
 	).Default("0").Int()
 
-	flagHttpConfig = kingpin.Flag(
+	flagHTTPConfig = kingpin.Flag(
 		"http.config",
 		"Path to config file to set Prometheus HTTP client options",
 	).String()
@@ -163,7 +163,7 @@ func main() {
 	logger.Info("Starting "+programName, "version", version.Version, "build_date", version.BuildDate, "commit", version.Commit, "docs_commit", version.DocsCommit, "go_version", runtime.Version())
 
 	// Optionally load HTTP config file to configure HTTP client for Prometheus API.
-	rt, err := getRoundTripperFromConfig(*flagHttpConfig)
+	rt, err := getRoundTripperFromConfig(*flagHTTPConfig)
 	if err != nil {
 		logger.Error("Failed to load HTTP config file, using default HTTP round tripper", "err", err)
 	}
@@ -181,7 +181,7 @@ func main() {
 
 	mcpServer, mcpContainer, err := mcp.NewServer(ctx, mcp.ServerConfig{
 		Logger:                logger,
-		PrometheusURL:         *flagPrometheusUrl,
+		PrometheusURL:         *flagPrometheusURL,
 		PrometheusBackend:     *flagPrometheusBackend,
 		PrometheusTimeout:     *flagPrometheusTimeout,
 		TruncationLimit:       *flagPrometheusTruncationLimit,

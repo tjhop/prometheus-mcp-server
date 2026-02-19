@@ -1561,18 +1561,18 @@ func TestTsdbStatsHandler(t *testing.T) {
 	}
 }
 
-func TestWalReplayHandler(t *testing.T) {
+func TestWALReplayHandler(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name              string
 		args              map[string]any
-		mockWalReplayFunc func(ctx context.Context) (promv1.WalReplayStatus, error)
+		mockWALReplayFunc func(ctx context.Context) (promv1.WalReplayStatus, error)
 		validateResult    func(t *testing.T, result string, isError bool, err error)
 	}{
 		{
 			name: "success",
 			args: map[string]any{},
-			mockWalReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
+			mockWALReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
 				return promv1.WalReplayStatus{
 					Min:     1,
 					Max:     100,
@@ -1588,7 +1588,7 @@ func TestWalReplayHandler(t *testing.T) {
 		{
 			name: "API error",
 			args: map[string]any{},
-			mockWalReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
+			mockWALReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
 				return promv1.WalReplayStatus{}, errors.New("prometheus exploded")
 			},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1601,11 +1601,11 @@ func TestWalReplayHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockAPI := &MockPrometheusAPI{WalReplayFunc: tc.mockWalReplayFunc}
+			mockAPI := &MockPrometheusAPI{WALReplayFunc: tc.mockWALReplayFunc}
 			container := newTestContainer(mockAPI)
 
 			ts := mcptest.NewTestServer(t)
-			mcptest.AddTool(ts, walReplayToolDef, container.WalReplayHandler)
+			mcptest.AddTool(ts, walReplayToolDef, container.WALReplayHandler)
 
 			result, err := ts.CallTool(ts.Context(), "wal_replay_status", tc.args)
 

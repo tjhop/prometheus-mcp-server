@@ -356,8 +356,8 @@ func (s *ServerContainer) ListTargetsHandler(ctx context.Context, req *mcp.CallT
 	return callAPIAndReturnToolResult(ctx, s.targetsAPICall, "failed making targets api call: ")
 }
 
-// WalReplayHandler handles the WAL replay status tool.
-func (s *ServerContainer) WalReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
+// WALReplayHandler handles the WAL replay status tool.
+func (s *ServerContainer) WALReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
 	return callAPIAndReturnToolResult(ctx, s.walReplayAPICall, "failed making WAL replay api call: ")
 }
 
