@@ -187,6 +187,9 @@ func (s *ServerContainer) RangeQueryHandler(ctx context.Context, req *mcp.CallTo
 		if err != nil {
 			return newToolErrorResult(fmt.Sprintf("failed to parse step: %v", err)), nil, nil
 		}
+		if parsedStep <= 0 {
+			return newToolErrorResult("step must be a positive duration (e.g. '30s', '5m', '1h')"), nil, nil
+		}
 		step = parsedStep
 	} else {
 		// Auto-calculate step to produce approximately defaultRangeQueryDataPoints data points.

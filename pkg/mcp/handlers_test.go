@@ -369,6 +369,24 @@ func TestRangeQueryHandler(t *testing.T) {
 			},
 		},
 		{
+			name: "zero step is rejected",
+			args: map[string]any{"query": "up", "step": "0s"},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "step must be a positive duration")
+			},
+		},
+		{
+			name: "negative step is rejected",
+			args: map[string]any{"query": "up", "step": "-5m"},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "step must be a positive duration")
+			},
+		},
+		{
 			name: "auto-step calculation from user-provided time range",
 			args: map[string]any{
 				"query":      "up",
