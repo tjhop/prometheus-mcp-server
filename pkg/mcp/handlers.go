@@ -84,7 +84,7 @@ func truncateStringByLines(s string, limit int) (string, bool) {
 	}
 
 	endMarker := 0
-	for i := range limit {
+	for range limit {
 		// Start from last endMarker marker to find next newline.
 		x := strings.Index(s[endMarker:], "\n")
 		if x == -1 {
@@ -92,13 +92,10 @@ func truncateStringByLines(s string, limit int) (string, bool) {
 			return s, false
 		}
 
-		endMarker += x
-
-		// If not the last iteration, advance endMarker marker to start
-		// of next line for the next iteration.
-		if i < limit-1 {
-			endMarker++
-		}
+		// Always advance past the newline so each iteration starts at
+		// the beginning of the next line, and the truncated result
+		// includes the trailing newline of the last included line.
+		endMarker += x + 1
 	}
 
 	// Truncate string by sub-slicing to the end of the last line in the

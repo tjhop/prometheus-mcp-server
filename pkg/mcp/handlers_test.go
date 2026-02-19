@@ -169,8 +169,10 @@ func TestQueryHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
 				require.NoError(t, err)
 				require.False(t, isError)
+				// truncateStringByLines includes the trailing newline of the last line,
+				// so the truncated line ends with \n before the warning separator.
 				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
-				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]%s","warnings":null}`, expectedWarning)
+				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]\n%s","warnings":null}`, expectedWarning)
 				require.JSONEq(t, expectedResult, result)
 			},
 		},
@@ -248,8 +250,10 @@ func TestQueryHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
 				require.NoError(t, err)
 				require.False(t, isError)
+				// truncateStringByLines includes the trailing newline of the last line,
+				// so the truncated line ends with \n before the warning separator.
 				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
-				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]%s","warnings":null}`, expectedWarning)
+				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]\n%s","warnings":null}`, expectedWarning)
 				require.JSONEq(t, expectedResult, result)
 			},
 		},
@@ -2634,7 +2638,7 @@ func TestTruncateStringByLines(t *testing.T) {
 			name:           "truncation at limit",
 			input:          "line1\nline2\nline3\nline4\nline5",
 			limit:          2,
-			expectedOutput: "line1\nline2",
+			expectedOutput: "line1\nline2\n",
 			expectTrunc:    true,
 		},
 		{
