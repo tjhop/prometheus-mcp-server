@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 )
@@ -39,8 +38,10 @@ func (e *ErrEndpointNotSupported) Unwrap() error {
 // isNotFoundError checks whether an error returned by the prometheus
 // client_golang API client represents an HTTP 404 Not Found response.
 //
-// client_golang returns *promv1.Error with Type=ErrClient and Msg containing
-// "client error: 404" for 4xx responses.
+// client_golang constructs 4xx error messages as "client error: <status_code>"
+// (see the ErrorType/Error types in prometheus/client_golang). We use exact
+// equality rather than substring matching to avoid false positives from
+// messages that happen to contain "404" (e.g. "client error: 4040").
 func isNotFoundError(err error) bool {
 	if err == nil {
 		return false
@@ -51,7 +52,7 @@ func isNotFoundError(err error) bool {
 		return false
 	}
 
-	return promErr.Type == promv1.ErrClient && strings.Contains(promErr.Msg, "404")
+	return promErr.Type == promv1.ErrClient && promErr.Msg == "client error: 404"
 }
 
 // wrapErrorIfNotFound wraps a 404 error from client_golang into
