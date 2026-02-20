@@ -392,6 +392,14 @@ func (s *ServerContainer) DeleteSeriesHandler(ctx context.Context, req *mcp.Call
 		return newToolErrorResult("at least one matches parameter is required"), nil, nil
 	}
 
+	// Require explicit time bounds for destructive operations. Without them,
+	// Prometheus defaults to deleting across the entire retention window.
+	// This is almost certainly not intended behavior from the end user,
+	// but if it is, make them ask for it.
+	if input.StartTime == "" || input.EndTime == "" {
+		return newToolErrorResult("both start_time and end_time are required for delete_series to prevent accidental deletion of all data; specify explicit time bounds"), nil, nil
+	}
+
 	logger := s.GetToolLogger(req, input)
 
 	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})

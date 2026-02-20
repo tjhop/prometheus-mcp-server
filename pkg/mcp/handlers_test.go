@@ -1693,22 +1693,6 @@ func TestDeleteSeriesHandler(t *testing.T) {
 		validateResult       func(t *testing.T, result string, isError bool, err error)
 	}{
 		{
-			name: "success",
-			args: map[string]any{
-				"matches": []string{"up{job=\"prometheus\"}"},
-			},
-			adminToolsEnabled: true,
-			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
-				require.Equal(t, []string{"up{job=\"prometheus\"}"}, matches)
-				return nil
-			},
-			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				require.NoError(t, err)
-				require.False(t, isError)
-				require.Contains(t, result, "success")
-			},
-		},
-		{
 			name: "success with time range",
 			args: map[string]any{
 				"matches":    []string{"http_requests_total"},
@@ -1765,6 +1749,7 @@ func TestDeleteSeriesHandler(t *testing.T) {
 			args: map[string]any{
 				"matches":    []string{"up"},
 				"start_time": "not-a-real-timestamp",
+				"end_time":   "1756143148",
 			},
 			adminToolsEnabled: true,
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1776,8 +1761,9 @@ func TestDeleteSeriesHandler(t *testing.T) {
 		{
 			name: "invalid end_time",
 			args: map[string]any{
-				"matches":  []string{"up"},
-				"end_time": "not-a-real-timestamp",
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+				"end_time":   "not-a-real-timestamp",
 			},
 			adminToolsEnabled: true,
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1787,9 +1773,49 @@ func TestDeleteSeriesHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "API error",
+			name: "missing time range",
 			args: map[string]any{
 				"matches": []string{"up"},
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "missing start_time only",
+			args: map[string]any{
+				"matches":  []string{"up"},
+				"end_time": "1756143148",
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "missing end_time only",
+			args: map[string]any{
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "API error",
+			args: map[string]any{
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+				"end_time":   "1756143148",
 			},
 			adminToolsEnabled: true,
 			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
