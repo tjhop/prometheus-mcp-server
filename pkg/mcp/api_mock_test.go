@@ -90,7 +90,7 @@ type MockPrometheusAPI struct {
 	TargetsFunc         func(ctx context.Context) (promv1.TargetsResult, error)
 	TargetsMetadataFunc func(ctx context.Context, matchTarget string, metric string, limit string) ([]promv1.MetricMetadata, error)
 	TSDBFunc            func(ctx context.Context, opts ...promv1.Option) (promv1.TSDBResult, error)
-	WalReplayFunc       func(ctx context.Context) (promv1.WalReplayStatus, error)
+	WALReplayFunc       func(ctx context.Context) (promv1.WalReplayStatus, error)
 
 	// Call tracking fields for verifying handler behavior.
 	// These are populated when the corresponding methods are called.
@@ -349,8 +349,8 @@ func (m *MockPrometheusAPI) TSDB(ctx context.Context, opts ...promv1.Option) (pr
 	return promv1.TSDBResult{}, nil
 }
 func (m *MockPrometheusAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus, error) {
-	if m.WalReplayFunc != nil {
-		return m.WalReplayFunc(ctx)
+	if m.WALReplayFunc != nil {
+		return m.WALReplayFunc(ctx)
 	}
 	return promv1.WalReplayStatus{}, nil
 }

@@ -229,10 +229,11 @@ type docsState struct {
 // mcp-go library with explicit dependency injection.
 type ServerContainer struct {
 	// Core dependencies.
-	logger           *slog.Logger
-	defaultAPIClient promv1.API
-	prometheusURL    string
-	defaultRT        http.RoundTripper
+	logger            *slog.Logger
+	defaultAPIClient  promv1.API
+	prometheusURL     string
+	defaultRT         http.RoundTripper
+	defaultHTTPClient http.Client
 
 	// Configuration values the MCP server needs to use/cares about.
 	truncationLimit       int
@@ -257,6 +258,7 @@ func newServerContainer(cfg ServerConfig) (*ServerContainer, error) {
 		defaultAPIClient:      client,
 		prometheusURL:         cfg.PrometheusURL,
 		defaultRT:             cfg.RoundTripper,
+		defaultHTTPClient:     http.Client{Transport: cfg.RoundTripper},
 		truncationLimit:       cfg.TruncationLimit,
 		toonOutputEnabled:     cfg.ToonOutputEnabled,
 		tsdbAdminToolsEnabled: cfg.TSDBAdminToolsEnabled,

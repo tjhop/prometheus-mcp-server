@@ -84,7 +84,7 @@ func truncateStringByLines(s string, limit int) (string, bool) {
 	}
 
 	endMarker := 0
-	for i := range limit {
+	for range limit {
 		// Start from last endMarker marker to find next newline.
 		x := strings.Index(s[endMarker:], "\n")
 		if x == -1 {
@@ -92,13 +92,10 @@ func truncateStringByLines(s string, limit int) (string, bool) {
 			return s, false
 		}
 
-		endMarker += x
-
-		// If not the last iteration, advance endMarker marker to start
-		// of next line for the next iteration.
-		if i < limit-1 {
-			endMarker++
-		}
+		// Always advance past the newline so each iteration starts at
+		// the beginning of the next line, and the truncated result
+		// includes the trailing newline of the last included line.
+		endMarker += x + 1
 	}
 
 	// Truncate string by sub-slicing to the end of the last line in the
@@ -189,6 +186,9 @@ func (s *ServerContainer) RangeQueryHandler(ctx context.Context, req *mcp.CallTo
 		parsedStep, err := time.ParseDuration(input.Step)
 		if err != nil {
 			return newToolErrorResult(fmt.Sprintf("failed to parse step: %v", err)), nil, nil
+		}
+		if parsedStep <= 0 {
+			return newToolErrorResult("step must be a positive duration (e.g. '30s', '5m', '1h')"), nil, nil
 		}
 		step = parsedStep
 	} else {
@@ -356,8 +356,8 @@ func (s *ServerContainer) ListTargetsHandler(ctx context.Context, req *mcp.CallT
 	return callAPIAndReturnToolResult(ctx, s.targetsAPICall, "failed making targets api call: ")
 }
 
-// WalReplayHandler handles the WAL replay status tool.
-func (s *ServerContainer) WalReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
+// WALReplayHandler handles the WAL replay status tool.
+func (s *ServerContainer) WALReplayHandler(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
 	return callAPIAndReturnToolResult(ctx, s.walReplayAPICall, "failed making WAL replay api call: ")
 }
 
@@ -541,6 +541,11 @@ func (s *ServerContainer) DocsSearchHandler(ctx context.Context, req *mcp.CallTo
 	docsFilesSeen := make(map[string]struct{})
 	for _, chunkID := range matchingChunkIDs {
 		parts := strings.Split(chunkID, "#")
+		if len(parts) != 2 {
+			// Valid chunk format is `filename#chunkID`.
+			logger.Warn("skipping malformed chunk ID", "chunk_id", chunkID)
+			continue
+		}
 		name := parts[0]
 		if _, seen := docsFilesSeen[name]; !seen {
 			docsFilesSeen[name] = struct{}{}
@@ -552,10 +557,11 @@ func (s *ServerContainer) DocsSearchHandler(ctx context.Context, req *mcp.CallTo
 
 	// Read all matching files via the resource handler and combine results.
 	resourceResults := make([]*mcp.ReadResourceResult, 0, len(matchingDocsFiles))
-	resourceReq := &mcp.ReadResourceRequest{Params: &mcp.ReadResourceParams{}}
 	for _, file := range matchingDocsFiles {
 		uri := resourcePrefix + "docs/" + url.PathEscape(file)
-		resourceReq.Params.URI = uri
+		// Allocate a fresh request per iteration to avoid shared-struct mutation
+		// across concurrent or sequential calls to DocsReadResourceHandler.
+		resourceReq := &mcp.ReadResourceRequest{Params: &mcp.ReadResourceParams{URI: uri}}
 
 		resourceResult, err := s.DocsReadResourceHandler(ctx, resourceReq)
 		if err != nil {
@@ -976,8 +982,13 @@ func (s *ServerContainer) doHTTPRequest(ctx context.Context, method string, rt h
 	}
 	req.Header.Set("Accept", "application/json")
 
-	httpClient := http.Client{
-		Transport: rt,
+	// Reuse the cached client for the default transport to share its idle
+	// connection pool. For auth-overridden transports create a one-off client.
+	var httpClient *http.Client
+	if s.defaultHTTPClient.Transport != nil && rt == s.defaultHTTPClient.Transport {
+		httpClient = &s.defaultHTTPClient
+	} else {
+		httpClient = &http.Client{Transport: rt}
 	}
 
 	startTs := time.Now()

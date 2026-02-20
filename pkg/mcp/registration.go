@@ -165,7 +165,7 @@ func initPrometheusToolset() {
 		"wal_replay_status": {
 			tool: walReplayToolDef,
 			register: func(s *mcp.Server, c *ServerContainer) {
-				mcp.AddTool(s, walReplayToolDef, c.WalReplayHandler)
+				mcp.AddTool(s, walReplayToolDef, c.WALReplayHandler)
 			},
 		},
 		// TSDB Admin tools

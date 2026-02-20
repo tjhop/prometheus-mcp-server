@@ -54,9 +54,8 @@ func TestParseTimestamp(t *testing.T) {
 				require.Error(t, err)
 			default:
 				require.NoError(t, err)
+				require.True(t, tc.expectedTime.Equal(got), "expected times to be equal", "expected", tc.expectedTime, "got", got)
 			}
-
-			require.True(t, tc.expectedTime.Equal(got), "expected times to be equal", "expected", tc.expectedTime, "got", got)
 		})
 	}
 }

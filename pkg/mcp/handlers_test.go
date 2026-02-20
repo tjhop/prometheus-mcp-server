@@ -169,8 +169,10 @@ func TestQueryHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
 				require.NoError(t, err)
 				require.False(t, isError)
+				// truncateStringByLines includes the trailing newline of the last line,
+				// so the truncated line ends with \n before the warning separator.
 				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
-				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]%s","warnings":null}`, expectedWarning)
+				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]\n%s","warnings":null}`, expectedWarning)
 				require.JSONEq(t, expectedResult, result)
 			},
 		},
@@ -248,8 +250,10 @@ func TestQueryHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
 				require.NoError(t, err)
 				require.False(t, isError)
+				// truncateStringByLines includes the trailing newline of the last line,
+				// so the truncated line ends with \n before the warning separator.
 				expectedWarning := strings.ReplaceAll(displayTruncationWarning(1), "\n", "\\n")
-				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]%s","warnings":null}`, expectedWarning)
+				expectedResult := fmt.Sprintf(`{"result":"{} => 1 @[1756143048]\n%s","warnings":null}`, expectedWarning)
 				require.JSONEq(t, expectedResult, result)
 			},
 		},
@@ -362,6 +366,24 @@ func TestRangeQueryHandler(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, isError)
 				require.Contains(t, result, "failed to parse step")
+			},
+		},
+		{
+			name: "zero step is rejected",
+			args: map[string]any{"query": "up", "step": "0s"},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "step must be a positive duration")
+			},
+		},
+		{
+			name: "negative step is rejected",
+			args: map[string]any{"query": "up", "step": "-5m"},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "step must be a positive duration")
 			},
 		},
 		{
@@ -1539,18 +1561,18 @@ func TestTsdbStatsHandler(t *testing.T) {
 	}
 }
 
-func TestWalReplayHandler(t *testing.T) {
+func TestWALReplayHandler(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name              string
 		args              map[string]any
-		mockWalReplayFunc func(ctx context.Context) (promv1.WalReplayStatus, error)
+		mockWALReplayFunc func(ctx context.Context) (promv1.WalReplayStatus, error)
 		validateResult    func(t *testing.T, result string, isError bool, err error)
 	}{
 		{
 			name: "success",
 			args: map[string]any{},
-			mockWalReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
+			mockWALReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
 				return promv1.WalReplayStatus{
 					Min:     1,
 					Max:     100,
@@ -1566,7 +1588,7 @@ func TestWalReplayHandler(t *testing.T) {
 		{
 			name: "API error",
 			args: map[string]any{},
-			mockWalReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
+			mockWALReplayFunc: func(ctx context.Context) (promv1.WalReplayStatus, error) {
 				return promv1.WalReplayStatus{}, errors.New("prometheus exploded")
 			},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1579,11 +1601,11 @@ func TestWalReplayHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockAPI := &MockPrometheusAPI{WalReplayFunc: tc.mockWalReplayFunc}
+			mockAPI := &MockPrometheusAPI{WALReplayFunc: tc.mockWALReplayFunc}
 			container := newTestContainer(mockAPI)
 
 			ts := mcptest.NewTestServer(t)
-			mcptest.AddTool(ts, walReplayToolDef, container.WalReplayHandler)
+			mcptest.AddTool(ts, walReplayToolDef, container.WALReplayHandler)
 
 			result, err := ts.CallTool(ts.Context(), "wal_replay_status", tc.args)
 
@@ -2634,7 +2656,7 @@ func TestTruncateStringByLines(t *testing.T) {
 			name:           "truncation at limit",
 			input:          "line1\nline2\nline3\nline4\nline5",
 			limit:          2,
-			expectedOutput: "line1\nline2",
+			expectedOutput: "line1\nline2\n",
 			expectTrunc:    true,
 		},
 		{
