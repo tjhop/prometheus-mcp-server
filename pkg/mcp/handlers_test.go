@@ -2216,7 +2216,7 @@ func newTestContainerWithDocs(mockAPI *MockPrometheusAPI, docsFS fs.FS) (*Server
 		if err != nil {
 			return nil, err
 		}
-		container.docs.Store(state)
+		container.swapDocsState(state)
 	}
 
 	return container, nil
@@ -2416,7 +2416,7 @@ func TestDocsSearchHandler(t *testing.T) {
 				// the search index, simulating a failed index initialization.
 				container = newTestContainer(&MockPrometheusAPI{})
 				// Store state with fs but no search index.
-				container.docs.Store(&docsState{fs: tc.docsFS})
+				container.swapDocsState(&docsState{fs: tc.docsFS})
 			} else {
 				var err error
 				container, err = newTestContainerWithDocs(&MockPrometheusAPI{}, tc.docsFS)

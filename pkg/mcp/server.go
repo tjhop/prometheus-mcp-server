@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/alpkeskin/gotoon"
@@ -242,8 +241,9 @@ type ServerContainer struct {
 	apiTimeout            time.Duration
 	clientLoggingEnabled  bool
 
-	// Docs state with atomic pointer for lock-free reads and safe live swaps.
-	docs atomic.Pointer[docsState]
+	// Docs state management.
+	docsMu sync.RWMutex
+	docs   *docsState
 }
 
 // newServerContainer creates a new ServerContainer with the given configuration.
@@ -274,7 +274,7 @@ func newServerContainer(cfg ServerConfig) (*ServerContainer, error) {
 			// Non-fatal - continue without docs search.
 		}
 
-		container.docs.Store(state)
+		container.swapDocsState(state)
 	}
 
 	return container, nil
@@ -357,16 +357,15 @@ func (s *ServerContainer) GetEffectiveTruncationLimit(perCallLimit int) int {
 // errDocsNotProvided is returned when docs filesystem is not configured.
 var errDocsNotProvided = errors.New("docs filesystem not provided")
 
-// getDocsState returns the current docs state, or nil if not initialized.
-func (s *ServerContainer) getDocsState() *docsState {
-	return s.docs.Load()
-}
-
-// swapDocsState atomically replaces the current docs state with a new one.
-// This enables live documentation updates without locking.
+// swapDocsState replaces the current docs state with a new one.  It acquires
+// the write lock, and only after successfully swapping the new docs in does it
+// attempt to close the old docs search index.
 func (s *ServerContainer) swapDocsState(state *docsState) {
-	oldState := s.docs.Load()
-	s.docs.Store(state)
+	s.docsMu.Lock()
+	oldState := s.docs
+	s.docs = state
+	s.docsMu.Unlock()
+
 	if oldState != nil && oldState.searchIndex != nil {
 		if err := oldState.searchIndex.Close(); err != nil {
 			s.logger.Error("failed to close old search index", "err", err)
@@ -445,7 +444,10 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 
 // SearchDocs searches the docs index and returns matching chunk IDs.
 func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.searchIndex == nil {
 		return nil, errors.New("docs search index not initialized")
 	}
@@ -476,7 +478,10 @@ func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
 
 // GetDocFileNames returns a list of all doc file names.
 func (s *ServerContainer) GetDocFileNames() ([]string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.fs == nil {
 		return nil, errDocsNotProvided
 	}
@@ -485,7 +490,10 @@ func (s *ServerContainer) GetDocFileNames() ([]string, error) {
 
 // GetDocFileContent returns the content of a doc file.
 func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.fs == nil {
 		return "", errDocsNotProvided
 	}
