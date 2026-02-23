@@ -215,12 +215,11 @@ func authContextMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// docsState holds the documentation filesystem, search index, and chunks.
+// docsState holds the documentation filesystem and search index.
 // It is designed to be swapped atomically for live documentation updates.
 type docsState struct {
 	fs          fs.FS
 	searchIndex bleve.Index
-	chunks      []chunk
 }
 
 // ServerContainer holds all dependencies needed by tool and resource handlers.
@@ -407,7 +406,6 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 		return nil, fmt.Errorf("failed to create in-memory search index: %w", err)
 	}
 
-	var chunks []chunk
 	for _, fn := range docFiles {
 		content, err := getDocFileContent(docsFS, fn)
 		if err != nil {
@@ -427,7 +425,6 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 				Name:    fn,
 				Content: c,
 			}
-			chunks = append(chunks, newChunk)
 			if err := searchIndex.Index(newChunk.String(), newChunk); err != nil {
 				logger.Error("Failed to index chunk", "chunk_id", newChunk.String(), "err", err)
 				continue
@@ -438,7 +435,6 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 	return &docsState{
 		fs:          docsFS,
 		searchIndex: searchIndex,
-		chunks:      chunks,
 	}, nil
 }
 
