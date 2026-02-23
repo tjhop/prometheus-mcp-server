@@ -974,7 +974,7 @@ func (s *ServerContainer) doManagementAPICall(ctx context.Context, method, path 
 		return "", fmt.Errorf("failed to make Prometheus Management API call to %s: %w", path, err)
 	}
 
-	return strings.Trim(data, "\\n\""), nil
+	return strings.Trim(data, "\n\""), nil
 }
 
 // doHTTPRequest makes an HTTP request using the provided round tripper.
