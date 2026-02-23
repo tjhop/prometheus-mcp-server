@@ -143,7 +143,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 	toolsetMap := getToolset(toolsetConfig{
 		enabledTools:      cfg.EnabledTools,
 		prometheusBackend: cfg.PrometheusBackend,
-		Logger:            logger,
+		logger:            logger,
 	})
 	toolset := toolsetToToolRegistrationSlice(toolsetMap)
 
