@@ -763,6 +763,13 @@ func (s *ServerContainer) metricMetadataAPICall(ctx context.Context, metric, lim
 		if err != nil {
 			return "", fmt.Errorf("failed to convert limit to int: %w", err)
 		}
+		if n < 0 {
+			// In the `truncation_limit` field of other tools, `-1`
+			// means unlimited. If we're given a negative number
+			// here, normalize it to 0 for the prom API call to
+			// treat it as unlimited.
+			n = 0
+		}
 		limitInt = n
 	}
 
@@ -807,6 +814,13 @@ func (s *ServerContainer) targetsMetadataAPICall(ctx context.Context, matchTarge
 		n, err := strconv.Atoi(limit)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert limit to int: %w", err)
+		}
+		if n < 0 {
+			// In the `truncation_limit` field of other tools, `-1`
+			// means unlimited. If we're given a negative number
+			// here, normalize it to 0 for the prom API call to
+			// treat it as unlimited.
+			n = 0
 		}
 		limitInt = n
 	}
