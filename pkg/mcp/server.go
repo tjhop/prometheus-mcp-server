@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/alpkeskin/gotoon"
@@ -144,7 +143,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 	toolsetMap := getToolset(toolsetConfig{
 		enabledTools:      cfg.EnabledTools,
 		prometheusBackend: cfg.PrometheusBackend,
-		Logger:            logger,
+		logger:            logger,
 	})
 	toolset := toolsetToToolRegistrationSlice(toolsetMap)
 
@@ -216,12 +215,11 @@ func authContextMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// docsState holds the documentation filesystem, search index, and chunks.
+// docsState holds the documentation filesystem and search index.
 // It is designed to be swapped atomically for live documentation updates.
 type docsState struct {
 	fs          fs.FS
 	searchIndex bleve.Index
-	chunks      []chunk
 }
 
 // ServerContainer holds all dependencies needed by tool and resource handlers.
@@ -242,8 +240,9 @@ type ServerContainer struct {
 	apiTimeout            time.Duration
 	clientLoggingEnabled  bool
 
-	// Docs state with atomic pointer for lock-free reads and safe live swaps.
-	docs atomic.Pointer[docsState]
+	// Docs state management.
+	docsMu sync.RWMutex
+	docs   *docsState
 }
 
 // newServerContainer creates a new ServerContainer with the given configuration.
@@ -274,7 +273,7 @@ func newServerContainer(cfg ServerConfig) (*ServerContainer, error) {
 			// Non-fatal - continue without docs search.
 		}
 
-		container.docs.Store(state)
+		container.swapDocsState(state)
 	}
 
 	return container, nil
@@ -357,16 +356,15 @@ func (s *ServerContainer) GetEffectiveTruncationLimit(perCallLimit int) int {
 // errDocsNotProvided is returned when docs filesystem is not configured.
 var errDocsNotProvided = errors.New("docs filesystem not provided")
 
-// getDocsState returns the current docs state, or nil if not initialized.
-func (s *ServerContainer) getDocsState() *docsState {
-	return s.docs.Load()
-}
-
-// swapDocsState atomically replaces the current docs state with a new one.
-// This enables live documentation updates without locking.
+// swapDocsState replaces the current docs state with a new one.  It acquires
+// the write lock, and only after successfully swapping the new docs in does it
+// attempt to close the old docs search index.
 func (s *ServerContainer) swapDocsState(state *docsState) {
-	oldState := s.docs.Load()
-	s.docs.Store(state)
+	s.docsMu.Lock()
+	oldState := s.docs
+	s.docs = state
+	s.docsMu.Unlock()
+
 	if oldState != nil && oldState.searchIndex != nil {
 		if err := oldState.searchIndex.Close(); err != nil {
 			s.logger.Error("failed to close old search index", "err", err)
@@ -408,7 +406,6 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 		return nil, fmt.Errorf("failed to create in-memory search index: %w", err)
 	}
 
-	var chunks []chunk
 	for _, fn := range docFiles {
 		content, err := getDocFileContent(docsFS, fn)
 		if err != nil {
@@ -428,7 +425,6 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 				Name:    fn,
 				Content: c,
 			}
-			chunks = append(chunks, newChunk)
 			if err := searchIndex.Index(newChunk.String(), newChunk); err != nil {
 				logger.Error("Failed to index chunk", "chunk_id", newChunk.String(), "err", err)
 				continue
@@ -439,13 +435,15 @@ func buildDocsState(logger *slog.Logger, docsFS fs.FS) (*docsState, error) {
 	return &docsState{
 		fs:          docsFS,
 		searchIndex: searchIndex,
-		chunks:      chunks,
 	}, nil
 }
 
 // SearchDocs searches the docs index and returns matching chunk IDs.
 func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.searchIndex == nil {
 		return nil, errors.New("docs search index not initialized")
 	}
@@ -476,7 +474,10 @@ func (s *ServerContainer) SearchDocs(q string, limit int) ([]string, error) {
 
 // GetDocFileNames returns a list of all doc file names.
 func (s *ServerContainer) GetDocFileNames() ([]string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.fs == nil {
 		return nil, errDocsNotProvided
 	}
@@ -485,7 +486,10 @@ func (s *ServerContainer) GetDocFileNames() ([]string, error) {
 
 // GetDocFileContent returns the content of a doc file.
 func (s *ServerContainer) GetDocFileContent(path string) (string, error) {
-	ds := s.getDocsState()
+	s.docsMu.RLock()
+	defer s.docsMu.RUnlock()
+
+	ds := s.docs
 	if ds == nil || ds.fs == nil {
 		return "", errDocsNotProvided
 	}

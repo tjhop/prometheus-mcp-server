@@ -400,17 +400,18 @@ func TestDocsUpdaterFetchAndApply(t *testing.T) {
 
 		container := newTestContainer(nil)
 		// Store initial docs state.
-		container.docs.Store(&docsState{fs: testDocsFS()})
+		container.swapDocsState(&docsState{fs: testDocsFS()})
 
 		updater := newTestUpdater(testUpdaterOpts{archiveURL: srv.URL, currentHash: "old-hash", container: container})
 		err := updater.fetchAndUpdateDocsFS(context.Background())
 		require.NoError(t, err)
 
 		// Verify the docs were updated.
-		ds := container.getDocsState()
-		require.NotNil(t, ds)
-		require.NotNil(t, ds.fs)
-		require.NotNil(t, ds.searchIndex)
+		// Verify the docs state fields via the public API methods.
+		// The state is accessed internally under RLock by GetDocFileNames.
+		names, err := container.GetDocFileNames()
+		require.NoError(t, err)
+		require.NotEmpty(t, names)
 
 		// Verify the new content is available.
 		content, err := container.GetDocFileContent("querying/basics.md")
@@ -427,7 +428,7 @@ func TestDocsUpdaterFetchAndApply(t *testing.T) {
 		defer srv.Close()
 
 		container := newTestContainer(nil)
-		container.docs.Store(&docsState{fs: testDocsFS()})
+		container.swapDocsState(&docsState{fs: testDocsFS()})
 
 		updater := newTestUpdater(testUpdaterOpts{archiveURL: srv.URL, currentHash: "old-hash", container: container})
 		err := updater.fetchAndUpdateDocsFS(context.Background())
@@ -449,7 +450,7 @@ func TestDocsUpdaterFetchAndApply(t *testing.T) {
 		defer srv.Close()
 
 		container := newTestContainer(nil)
-		container.docs.Store(&docsState{fs: testDocsFS()})
+		container.swapDocsState(&docsState{fs: testDocsFS()})
 
 		updater := newTestUpdater(testUpdaterOpts{archiveURL: srv.URL, currentHash: "old-hash", container: container})
 		err := updater.fetchAndUpdateDocsFS(context.Background())
@@ -471,7 +472,7 @@ func TestDocsUpdaterAtomicSwap(t *testing.T) {
 		}
 		initialState, err := buildDocsState(slog.Default(), initialFS)
 		require.NoError(t, err)
-		container.docs.Store(initialState)
+		container.swapDocsState(initialState)
 
 		// Verify initial state.
 		content, err := container.GetDocFileContent("old.md")
@@ -507,7 +508,7 @@ func TestDocsUpdaterAtomicSwap(t *testing.T) {
 		}
 		initialState, err := buildDocsState(slog.Default(), initialFS)
 		require.NoError(t, err)
-		container.docs.Store(initialState)
+		container.swapDocsState(initialState)
 
 		// Start multiple concurrent readers.
 		const numReaders = 10

@@ -186,7 +186,7 @@ var (
 
 	deleteSeriesToolDef = &mcp.Tool{
 		Name:        "delete_series",
-		Description: "Deletes data for a selection of series in a time range",
+		Description: "Deletes data for a selection of series in a time range. Both start_time and end_time are required to prevent accidental deletion of all data. Deletion creates tombstones; run clean_tombstones or wait for compaction to reclaim disk space.",
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Delete Series",
 			DestructiveHint: ptr(true),

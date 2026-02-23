@@ -24,7 +24,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("all tools loads entire prometheus toolset", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"all"},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -38,7 +38,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("core tools loads only core subset", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"core"},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -59,7 +59,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("custom tool list includes core plus specified tools", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"alertmanagers", "config"},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -82,7 +82,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("invalid tool names are ignored with warning", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"nonexistent_tool", "alertmanagers"},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -102,7 +102,7 @@ func TestGetToolset(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"all"}, // This would normally load prometheus
 			prometheusBackend: "thanos",
-			Logger:            slog.Default(),
+			logger:            slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -131,7 +131,7 @@ func TestGetToolset(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"core"}, // Would normally just load core
 			prometheusBackend: "prometheus",
-			Logger:            slog.Default(),
+			logger:            slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -148,7 +148,7 @@ func TestGetToolset(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"alertmanagers"},
 			prometheusBackend: "super-awesome-tsdb", // Unknown backend
-			Logger:            slog.Default(),
+			logger:            slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -167,7 +167,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("empty enabled tools loads only core", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -183,7 +183,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("duplicate tools in enabled list are deduplicated", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"query", "query", "alertmanagers", "alertmanagers"},
-			Logger:       slog.Default(),
+			logger:       slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -205,7 +205,7 @@ func TestGetToolset(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"core"},
 			prometheusBackend: "THANOS",
-			Logger:            slog.Default(),
+			logger:            slog.Default(),
 		}
 
 		toolset := getToolset(cfg)
@@ -218,7 +218,7 @@ func TestGetToolset(t *testing.T) {
 	t.Run("nil logger uses default", func(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools: []string{"core"},
-			Logger:       nil,
+			logger:       nil,
 		}
 
 		require.NotPanics(t, func() {
@@ -232,7 +232,7 @@ func TestGetToolset(t *testing.T) {
 		cfg := toolsetConfig{
 			enabledTools:      []string{"core"},
 			prometheusBackend: "Prometheus", // Mixed case
-			Logger:            slog.Default(),
+			logger:            slog.Default(),
 		}
 
 		toolset := getToolset(cfg)

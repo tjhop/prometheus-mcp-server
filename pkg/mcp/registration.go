@@ -280,11 +280,11 @@ func registerTools(server *mcp.Server, container *ServerContainer, toolset []too
 type toolsetConfig struct {
 	enabledTools      []string
 	prometheusBackend string
-	Logger            *slog.Logger
+	logger            *slog.Logger
 }
 
 func getToolset(cfg toolsetConfig) map[string]toolRegistration {
-	logger := cfg.Logger
+	logger := cfg.logger
 	if logger == nil {
 		logger = promslog.NewNopLogger()
 	}

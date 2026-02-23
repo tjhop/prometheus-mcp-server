@@ -1693,22 +1693,6 @@ func TestDeleteSeriesHandler(t *testing.T) {
 		validateResult       func(t *testing.T, result string, isError bool, err error)
 	}{
 		{
-			name: "success",
-			args: map[string]any{
-				"matches": []string{"up{job=\"prometheus\"}"},
-			},
-			adminToolsEnabled: true,
-			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
-				require.Equal(t, []string{"up{job=\"prometheus\"}"}, matches)
-				return nil
-			},
-			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				require.NoError(t, err)
-				require.False(t, isError)
-				require.Contains(t, result, "success")
-			},
-		},
-		{
 			name: "success with time range",
 			args: map[string]any{
 				"matches":    []string{"http_requests_total"},
@@ -1765,6 +1749,7 @@ func TestDeleteSeriesHandler(t *testing.T) {
 			args: map[string]any{
 				"matches":    []string{"up"},
 				"start_time": "not-a-real-timestamp",
+				"end_time":   "1756143148",
 			},
 			adminToolsEnabled: true,
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1776,8 +1761,9 @@ func TestDeleteSeriesHandler(t *testing.T) {
 		{
 			name: "invalid end_time",
 			args: map[string]any{
-				"matches":  []string{"up"},
-				"end_time": "not-a-real-timestamp",
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+				"end_time":   "not-a-real-timestamp",
 			},
 			adminToolsEnabled: true,
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
@@ -1787,9 +1773,49 @@ func TestDeleteSeriesHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "API error",
+			name: "missing time range",
 			args: map[string]any{
 				"matches": []string{"up"},
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "missing start_time only",
+			args: map[string]any{
+				"matches":  []string{"up"},
+				"end_time": "1756143148",
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "missing end_time only",
+			args: map[string]any{
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+			},
+			adminToolsEnabled: true,
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "start_time and end_time are required")
+			},
+		},
+		{
+			name: "API error",
+			args: map[string]any{
+				"matches":    []string{"up"},
+				"start_time": "1756143048",
+				"end_time":   "1756143148",
 			},
 			adminToolsEnabled: true,
 			mockDeleteSeriesFunc: func(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) error {
@@ -2216,7 +2242,7 @@ func newTestContainerWithDocs(mockAPI *MockPrometheusAPI, docsFS fs.FS) (*Server
 		if err != nil {
 			return nil, err
 		}
-		container.docs.Store(state)
+		container.swapDocsState(state)
 	}
 
 	return container, nil
@@ -2416,7 +2442,7 @@ func TestDocsSearchHandler(t *testing.T) {
 				// the search index, simulating a failed index initialization.
 				container = newTestContainer(&MockPrometheusAPI{})
 				// Store state with fs but no search index.
-				container.docs.Store(&docsState{fs: tc.docsFS})
+				container.swapDocsState(&docsState{fs: tc.docsFS})
 			} else {
 				var err error
 				container, err = newTestContainerWithDocs(&MockPrometheusAPI{}, tc.docsFS)
@@ -3186,7 +3212,7 @@ func TestConcurrentQueryCalls(t *testing.T) {
 					continue
 				}
 				if result.IsError {
-					errors <- nil // Track as error but continue.
+					errors <- fmt.Errorf("tool returned IsError=true for query goroutine %d call %d", goroutineID, j)
 				}
 			}
 		}(i)
@@ -3271,7 +3297,7 @@ func TestConcurrentMultipleToolCalls(t *testing.T) {
 	mcptest.AddTool(ts, seriesToolDef, container.SeriesHandler)
 
 	var wg sync.WaitGroup
-	errors := make(chan error, numGoroutines*4)
+	errs := make(chan error, numGoroutines*4)
 
 	// Launch goroutines for each tool type.
 	for i := 0; i < numGoroutines; i++ {
@@ -3281,9 +3307,9 @@ func TestConcurrentMultipleToolCalls(t *testing.T) {
 			defer wg.Done()
 			result, err := ts.CallTool(ts.Context(), "query", map[string]any{"query": "up"})
 			if err != nil {
-				errors <- err
+				errs <- err
 			} else if result.IsError {
-				errors <- nil
+				errs <- errors.New("query tool returned IsError=true")
 			}
 		}()
 
@@ -3293,9 +3319,9 @@ func TestConcurrentMultipleToolCalls(t *testing.T) {
 			defer wg.Done()
 			result, err := ts.CallTool(ts.Context(), "label_names", map[string]any{})
 			if err != nil {
-				errors <- err
+				errs <- err
 			} else if result.IsError {
-				errors <- nil
+				errs <- errors.New("label_names tool returned IsError=true")
 			}
 		}()
 
@@ -3305,9 +3331,9 @@ func TestConcurrentMultipleToolCalls(t *testing.T) {
 			defer wg.Done()
 			result, err := ts.CallTool(ts.Context(), "label_values", map[string]any{"label": "job"})
 			if err != nil {
-				errors <- err
+				errs <- err
 			} else if result.IsError {
-				errors <- nil
+				errs <- errors.New("label_values tool returned IsError=true")
 			}
 		}()
 
@@ -3317,19 +3343,19 @@ func TestConcurrentMultipleToolCalls(t *testing.T) {
 			defer wg.Done()
 			result, err := ts.CallTool(ts.Context(), "series", map[string]any{"matches": []string{"up"}})
 			if err != nil {
-				errors <- err
+				errs <- err
 			} else if result.IsError {
-				errors <- nil
+				errs <- errors.New("series tool returned IsError=true")
 			}
 		}()
 	}
 
 	wg.Wait()
-	close(errors)
+	close(errs)
 
 	// Collect any errors.
 	var errCount int
-	for err := range errors {
+	for err := range errs {
 		if err != nil {
 			errCount++
 			t.Logf("Error during concurrent call: %v", err)

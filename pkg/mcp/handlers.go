@@ -392,6 +392,14 @@ func (s *ServerContainer) DeleteSeriesHandler(ctx context.Context, req *mcp.Call
 		return newToolErrorResult("at least one matches parameter is required"), nil, nil
 	}
 
+	// Require explicit time bounds for destructive operations. Without them,
+	// Prometheus defaults to deleting across the entire retention window.
+	// This is almost certainly not intended behavior from the end user,
+	// but if it is, make them ask for it.
+	if input.StartTime == "" || input.EndTime == "" {
+		return newToolErrorResult("both start_time and end_time are required for delete_series to prevent accidental deletion of all data; specify explicit time bounds"), nil, nil
+	}
+
 	logger := s.GetToolLogger(req, input)
 
 	startTs, endTs, err := parseTimeRangeInputWithDefaults(input.TimeRangeInput, time.Time{}, time.Time{})
@@ -755,6 +763,13 @@ func (s *ServerContainer) metricMetadataAPICall(ctx context.Context, metric, lim
 		if err != nil {
 			return "", fmt.Errorf("failed to convert limit to int: %w", err)
 		}
+		if n < 0 {
+			// In the `truncation_limit` field of other tools, `-1`
+			// means unlimited. If we're given a negative number
+			// here, normalize it to 0 for the prom API call to
+			// treat it as unlimited.
+			n = 0
+		}
 		limitInt = n
 	}
 
@@ -799,6 +814,13 @@ func (s *ServerContainer) targetsMetadataAPICall(ctx context.Context, matchTarge
 		n, err := strconv.Atoi(limit)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert limit to int: %w", err)
+		}
+		if n < 0 {
+			// In the `truncation_limit` field of other tools, `-1`
+			// means unlimited. If we're given a negative number
+			// here, normalize it to 0 for the prom API call to
+			// treat it as unlimited.
+			n = 0
 		}
 		limitInt = n
 	}
@@ -966,7 +988,7 @@ func (s *ServerContainer) doManagementAPICall(ctx context.Context, method, path 
 		return "", fmt.Errorf("failed to make Prometheus Management API call to %s: %w", path, err)
 	}
 
-	return strings.Trim(data, "\\n\""), nil
+	return strings.Trim(data, "\n\""), nil
 }
 
 // doHTTPRequest makes an HTTP request using the provided round tripper.
