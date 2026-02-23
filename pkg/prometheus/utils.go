@@ -75,6 +75,13 @@ func ParseTimestampOrDuration(s string) (time.Time, error) {
 	}
 
 	if dur, err := time.ParseDuration(s); err == nil {
+		// Durations always represent a time in the past relative to now.
+		// Both "5m" and "-5m" mean "5 minutes ago" -- we normalize
+		// negative durations so that callers (typically LLMs) get
+		// consistent behavior regardless of sign convention.
+		if dur < 0 {
+			dur = -dur
+		}
 		return time.Now().Add(-dur), nil
 	}
 
