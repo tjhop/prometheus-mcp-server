@@ -1,0 +1,45 @@
+Prometheus MCP Server has been deployed.
+
+{{- if eq .Values.mcp.transport "http" }}
+
+The MCP server is available at:
+  http://{{ include "prometheus-mcp-server.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/mcp
+
+Metrics are available at:
+  http://{{ include "prometheus-mcp-server.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/metrics
+
+To port-forward for local testing:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "prometheus-mcp-server.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Then access:
+  MCP endpoint: http://localhost:{{ .Values.service.port }}/mcp
+  Metrics:      http://localhost:{{ .Values.service.port }}/metrics
+{{- if .Values.ingress.enabled }}
+
+Ingress is enabled. The server is accessible via:
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- else }}
+
+WARNING: The MCP server is running in stdio transport mode.
+
+  Stdio transport is designed for local process communication and is unusual
+  in a Kubernetes deployment. The MCP endpoint will NOT be accessible over
+  the network. Only the metrics HTTP server is reachable.
+
+  The chart defaults to HTTP transport. If this was unintentional, switch back:
+
+    helm upgrade {{ .Release.Name }} <chart-source> --set mcp.transport=http
+
+Metrics are available at:
+  http://{{ include "prometheus-mcp-server.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/metrics
+
+{{- end }}
+
+Prometheus target: {{ .Values.prometheus.url }}

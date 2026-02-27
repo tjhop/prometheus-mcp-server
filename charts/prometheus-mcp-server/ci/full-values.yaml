@@ -1,0 +1,153 @@
+# Full feature test values -- enables most optional template paths to validate
+# they render valid Kubernetes manifests. Covers: serviceMonitor (with
+# relabelings, metricRelabelings), ingress (with TLS),
+# httpConfig, mcp options, tsdbAdmin, extraArgs, extraEnv, extraVolumes,
+# extraVolumeMounts, resources, nodeSelector, tolerations, affinity,
+# fullnameOverride, containerPort, serviceAccount customizations,
+# and prometheus backend/truncation settings.
+#
+# Notable exclusions:
+# - docs.autoUpdate: set to false (the default) because enabling it requires
+#   a writable filesystem, which conflicts with readOnlyRootFilesystem: true.
+#   Exercised in log-file-values.yaml instead.
+# - log.file: same filesystem constraint. Covered by log-file-values.yaml.
+
+fullnameOverride: "prometheus-mcp-server-full-test"
+
+prometheus:
+  url: "http://prometheus:9090"
+  backend: "thanos"
+  timeout: "2m"
+  truncationLimit: 500
+
+mcp:
+  tools:
+    - "all"
+  enableToonOutput: true
+  enableClientLogging: true
+
+docs:
+  autoUpdate: false
+
+tsdbAdmin:
+  enabled: true
+
+httpConfig:
+  enabled: true
+  config:
+    tls_config:
+      insecure_skip_verify: true
+
+# NOTE: log.file is intentionally omitted because the default
+# containerSecurityContext sets readOnlyRootFilesystem: true, which
+# prevents writing to the container filesystem. To use log.file, add a
+# writable volume via extraVolumes/extraVolumeMounts.
+
+# containerPort differs from service.port to exercise the named-port
+# indirection path (Service port 8080 -> targetPort "http" -> container 9090).
+containerPort: 9090
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# NOTE: serviceMonitor.namespace and the auto-generated namespaceSelector
+# fallback are validated at ct lint time (template rendering) but not during
+# ct install, because deploying a ServiceMonitor to a different namespace
+# requires that namespace to exist in the kind cluster.
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+  interval: "30s"
+  scrapeTimeout: "10s"
+  relabelings:
+    - sourceLabels: [__name__]
+      action: keep
+      regex: "prom_mcp_.*"
+  metricRelabelings:
+    - sourceLabels: [__name__]
+      action: drop
+      regex: "go_.*"
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: prometheus-mcp-server.test
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: prometheus-mcp-server-tls
+      hosts:
+        - prometheus-mcp-server.test
+
+serviceAccount:
+  create: true
+  name: "prometheus-mcp-server-test-service-account"
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::role/test"
+  automountServiceAccountToken: false
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+podAnnotations:
+  test-annotation: "true"
+
+podLabels:
+  test-label: "true"
+
+extraArgs:
+  - "--web.cors.origin=.*"
+
+extraEnv:
+  - name: GOMAXPROCS
+    value: "2"
+
+extraVolumes:
+  - name: extra-configuration
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: extra-configuration
+    mountPath: /etc/extra-config
+    readOnly: false
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "monitoring"
+    effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/arch
+              operator: In
+              values:
+                - amd64
+                - arm64
+
+# Override test container security context to exercise the custom
+# test.containerSecurityContext template path (omits seccompProfile
+# to differ from the default).
+test:
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL

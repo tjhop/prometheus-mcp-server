@@ -1,0 +1,23 @@
+apiVersion: v2
+name: prometheus-mcp-server
+description: A Helm chart for deploying the Prometheus MCP Server to Kubernetes
+type: application
+kubeVersion: ">=1.19.0-0"
+version: "0.16.0"
+appVersion: "0.16.0"
+home: https://github.com/tjhop/prometheus-mcp-server
+sources:
+  - https://github.com/tjhop/prometheus-mcp-server
+keywords:
+  - prometheus
+  - metrics
+  - timeseries
+  - monitoring
+  - observability
+  - alerting
+  - llm
+  - mcp
+  - ai
+maintainers:
+  - name: tjhop
+    url: https://github.com/tjhop

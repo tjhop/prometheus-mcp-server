@@ -1,0 +1,155 @@
+{{- $httpConfigReady := and .Values.httpConfig.enabled (or .Values.httpConfig.existingSecret .Values.httpConfig.config) -}}
+{{- if and .Values.httpConfig.enabled (not $httpConfigReady) -}}
+{{- fail "httpConfig.enabled is true but neither httpConfig.existingSecret nor httpConfig.config is set" -}}
+{{- end -}}
+{{- $validTransports := list "http" "stdio" -}}
+{{- if not (has .Values.mcp.transport $validTransports) -}}
+{{- fail (printf "mcp.transport must be one of: %s (got: %s)" (join ", " $validTransports) .Values.mcp.transport) -}}
+{{- end -}}
+{{- $validLogLevels := list "debug" "info" "warn" "error" -}}
+{{- if not (has .Values.log.level $validLogLevels) -}}
+{{- fail (printf "log.level must be one of: %s (got: %s)" (join ", " $validLogLevels) .Values.log.level) -}}
+{{- end -}}
+{{- if not .Values.prometheus.url -}}
+{{- fail "prometheus.url is required and must not be empty" -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "prometheus-mcp-server.fullname" . }}
+  labels:
+    {{- include "prometheus-mcp-server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "prometheus-mcp-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "prometheus-mcp-server.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "prometheus-mcp-server.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--prometheus.url={{ .Values.prometheus.url }}"
+            - "--mcp.transport={{ .Values.mcp.transport }}"
+            - "--web.listen-address=:{{ .Values.containerPort }}"
+            - "--log.level={{ .Values.log.level }}"
+            {{- if .Values.prometheus.backend }}
+            - "--prometheus.backend={{ .Values.prometheus.backend }}"
+            {{- end }}
+            {{- if .Values.prometheus.timeout }}
+            - "--prometheus.timeout={{ .Values.prometheus.timeout }}"
+            {{- end }}
+            {{- if .Values.prometheus.truncationLimit }}
+            - "--prometheus.truncation-limit={{ .Values.prometheus.truncationLimit }}"
+            {{- end }}
+            {{- if .Values.mcp.tools }}
+            {{- range .Values.mcp.tools }}
+            - "--mcp.tools={{ . }}"
+            {{- end }}
+            {{- else }}
+            {{/* Safety net for malformed overrides: if mcp.tools resolves to a
+                 falsy value (e.g., [] or null via --set), fall back to loading
+                 all tools. Under normal values.yaml usage the default ["all"]
+                 enters the range loop above, making this branch unreachable. */}}
+            - "--mcp.tools=all"
+            {{- end }}
+            {{- if .Values.mcp.enableToonOutput }}
+            - "--mcp.enable-toon-output"
+            {{- end }}
+            {{- if .Values.mcp.enableClientLogging }}
+            - "--mcp.enable-client-logging"
+            {{- end }}
+            {{- if .Values.docs.autoUpdate }}
+            - "--docs.auto-update"
+            {{- end }}
+            {{- if .Values.tsdbAdmin.enabled }}
+            - "--dangerous.enable-tsdb-admin-tools"
+            {{- end }}
+            {{- if $httpConfigReady }}
+            - "--http.config=/etc/prometheus-mcp-server/http-config.yaml"
+            {{- end }}
+            {{- if .Values.log.file }}
+            - "--log.file={{ .Values.log.file }}"
+            {{- end }}
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or $httpConfigReady .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if $httpConfigReady }}
+            - name: http-config
+              mountPath: /etc/prometheus-mcp-server
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if or $httpConfigReady .Values.extraVolumes }}
+      volumes:
+        {{- if $httpConfigReady }}
+        - name: http-config
+          secret:
+            secretName: {{ .Values.httpConfig.existingSecret | default (printf "%s-http-config" (include "prometheus-mcp-server.fullname" .)) }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
