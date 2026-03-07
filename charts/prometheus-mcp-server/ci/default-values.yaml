@@ -1,0 +1,2 @@
+# Default values -- exercises the base chart with no optional features.
+# ct install uses this to validate the chart installs cleanly with defaults.

@@ -1,0 +1,37 @@
+# Exercises template paths not covered by other CI values files:
+# - log.file with a writable emptyDir volume
+# - docs.autoUpdate (requires writable filesystem, covered here since
+#   readOnlyRootFilesystem is already set to false)
+# - nameOverride (vs fullnameOverride in full-values.yaml)
+#
+# Note: httpConfig.existingSecret and ServiceMonitor auto-generated
+# namespaceSelector are validated at lint time (ct lint renders all templates)
+# but cannot be exercised during ct install without cluster-side prerequisites.
+
+nameOverride: "prometheus-mcp-server-log-test"
+
+docs:
+  autoUpdate: true
+
+log:
+  file: "/tmp/logs/prometheus-mcp-server.log"
+
+# Full containerSecurityContext override required because the template uses
+# toYaml passthrough (not deep merge). readOnlyRootFilesystem is set to false
+# so the log file can be written to the emptyDir-backed /tmp/logs path.
+containerSecurityContext:
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+extraVolumes:
+  - name: log-directory
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: log-directory
+    mountPath: /tmp/logs

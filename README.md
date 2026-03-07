@@ -223,6 +223,25 @@ docker run --rm -p 8080:8080 ghcr.io/tjhop/prometheus-mcp-server:latest --promet
 docker run --rm -p 8080:8080 -e PROMETHEUS_MCP_SERVER_PROMETHEUS_URL="https://$yourPrometheus:9090" -e PROMETHEUS_MCP_SERVER_MCP_TRANSPORT="http" -e PROMETHEUS_MCP_SERVER_WEB_LISTEN_ADDRESS=":8080" ghcr.io/tjhop/prometheus-mcp-server:latest
 ```
 
+### Helm Chart (Kubernetes)
+
+A Helm chart is available for deploying to Kubernetes. The chart is published as an OCI artifact on each release.
+
+```bash
+helm install prometheus-mcp-server oci://ghcr.io/tjhop/charts/prometheus-mcp-server \
+  --version <version> \
+  --set prometheus.url=http://prometheus:9090
+```
+
+See the [chart README](./charts/prometheus-mcp-server/README.md) for the full list of configuration values and examples.
+
+### Kubernetes (Raw Manifests)
+
+If you prefer deploying without Helm, example Kubernetes manifests are available:
+
+- [Kubernetes Deployment](./examples/k8s-deployment.yml)
+- [OpenShift Deployment](./examples/openshift-deployment.yml)
+
 ### System Packages
 Download a release appropriate for your system from the [Releases](https://github.com/tjhop/prometheus-mcp-server/releases) page. A Systemd service file is included in the system packages that are built.
 

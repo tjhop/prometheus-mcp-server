@@ -1,0 +1,220 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/tjhop/prometheus-mcp-server
+  # Image pull policy (Always, IfNotPresent, or Never)
+  pullPolicy: IfNotPresent
+  # Overrides the image tag (default is the chart appVersion)
+  tag: ""
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Override the chart name
+nameOverride: ""
+# Override the full release name
+fullnameOverride: ""
+
+prometheus:
+  # URL of the Prometheus instance to connect to
+  url: "http://prometheus:9090"
+  # Prometheus-compatible backend type (leave empty for standard Prometheus, otherwise specify)
+  backend: ""
+  # Timeout for API calls to the Prometheus backend (Go duration string, e.g., "30s", "2m", "1h")
+  timeout: "1m"
+  # Maximum query response size in lines/entries (0 to disable truncation)
+  truncationLimit: 0
+
+mcp:
+  # MCP transport type (use "http" for Kubernetes deployments)
+  transport: "http"
+  # List of MCP tools to load. Use ["all"] for all tools, ["core"] for core tools only,
+  # or a list of specific tool names (e.g., ["query", "range_query", "build_info"]).
+  # Each entry maps to a separate --mcp.tools flag invocation.
+  tools:
+    - "all"
+  # Enable Token-Oriented Object Notation (TOON) output instead of JSON
+  enableToonOutput: false
+  # Enable sending log messages to connected MCP clients
+  enableClientLogging: false
+
+docs:
+  # Enable automatic documentation updates from the official prometheus/docs repository
+  autoUpdate: false
+
+tsdbAdmin:
+  # Enable dangerous TSDB admin tools (snapshot, delete_series, clean_tombstones)
+  enabled: false
+
+httpConfig:
+  # Enable Prometheus HTTP client configuration via Secret
+  enabled: false
+  # Name of an existing Secret containing an `http-config.yaml` key.
+  # The Secret must use exactly this key name; the chart mounts the Secret
+  # as a directory and passes --http.config=/etc/prometheus-mcp-server/http-config.yaml.
+  # When set, the chart will not create its own Secret.
+  existingSecret: ""
+  # Prometheus HTTP client configuration content (stored in a Secret since it
+  # may contain credentials such as basic_auth passwords or bearer tokens).
+  # See https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_config
+  # config:
+  #   basic_auth:
+  #     username: admin
+  #     password: secret
+
+# Container port (the port the process listens on inside the container, used
+# for --web.listen-address and the pod spec containerPort)
+containerPort: 8080
+
+log:
+  # Log level (debug, info, warn, error)
+  level: "info"
+  # Log file path (empty for stdout).
+  # NOTE: When readOnlyRootFilesystem is true (the default), writing to the
+  # container filesystem is not possible. To use log.file, add a writable
+  # volume (e.g., emptyDir) via extraVolumes/extraVolumeMounts at the target path.
+  # It is instead recommended to log to stderr like normal and collect the
+  # container log streams via external log collectors.
+  file: ""
+
+service:
+  # Service type
+  type: ClusterIP
+  # Service port (the port exposed by the Kubernetes Service)
+  port: 8080
+  # Annotations to add to the service
+  annotations: {}
+
+ingress:
+  # Enable ingress resource
+  enabled: false
+  # Ingress class name (required on Kubernetes 1.22+ if no default IngressClass is configured)
+  ingressClassName: ""
+  # Annotations to add to the ingress
+  annotations: {}
+  # Ingress hosts configuration
+  hosts:
+    - host: prometheus-mcp-server.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # Ingress TLS configuration
+  tls: []
+  #  - secretName: prometheus-mcp-server-tls
+  #    hosts:
+  #      - prometheus-mcp-server.local
+
+serviceMonitor:
+  # Enable ServiceMonitor resource for Prometheus Operator
+  enabled: false
+  # Extra labels to add to the ServiceMonitor (for serviceMonitorSelector matching)
+  labels: {}
+  # Namespace to deploy the ServiceMonitor into (defaults to release namespace)
+  namespace: ""
+  # Scrape interval
+  interval: ""
+  # Scrape timeout
+  scrapeTimeout: ""
+  # Namespace selector for the ServiceMonitor
+  namespaceSelector: {}
+  # Relabelings to apply to samples before scraping
+  relabelings: []
+  # Metric relabelings to apply to samples before ingestion
+  metricRelabelings: []
+
+serviceAccount:
+  # Create a service account
+  create: true
+  # Service account name (generated from fullname if not set)
+  name: ""
+  # Annotations to add to the service account
+  annotations: {}
+  # Whether to auto-mount the service account token into pods
+  automountServiceAccountToken: false
+
+# Resource requests and limits
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+livenessProbe:
+  httpGet:
+    path: /metrics
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /metrics
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# Node selector for pod scheduling
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+tolerations: []
+
+# Affinity rules for pod scheduling
+affinity: {}
+
+# Extra command-line arguments to pass to the server
+extraArgs: []
+
+# Extra environment variables
+extraEnv: []
+
+# Extra volumes to add to the pod
+extraVolumes: []
+
+# Extra volume mounts to add to the container
+extraVolumeMounts: []
+
+# Test pod configuration (used by `helm test`)
+test:
+  image:
+    # Test container image repository
+    repository: busybox
+    # Test container image tag
+    tag: "1.37"
+  # Container security context for test pods.
+  # Separate from containerSecurityContext because test containers may need
+  # a writable filesystem (e.g., wget creates temporary files).
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault

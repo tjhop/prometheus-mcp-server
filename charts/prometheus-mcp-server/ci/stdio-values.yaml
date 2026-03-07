@@ -1,0 +1,12 @@
+# Stdio transport test values -- validates that the stdio transport path
+# renders valid Kubernetes manifests. Stdio is unusual in Kubernetes but the
+# template must still produce correct resources.
+
+mcp:
+  transport: "stdio"
+
+# Exercises the serviceAccount.create=false template path. Uses the "default"
+# service account which exists in every namespace, ensuring ct install succeeds.
+serviceAccount:
+  create: false
+  name: "default"

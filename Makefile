@@ -38,6 +38,15 @@ image: build-all ## build container images with goreleaser, alias for `build-all
 test: fmt tidy ## run tests
 	go test -race -v ./...
 
+helm-lint: ## run helm chart linting
+	ct lint --config ct.yaml
+
+helm-template: ## render helm templates for inspection
+	helm template prometheus-mcp-server charts/prometheus-mcp-server/
+
+helm-test: ## install helm chart and run tests (requires a running cluster)
+	ct install --config ct.yaml
+
 mcphost: build ## use mcphost to run the prometheus-mcp-server against a local ollama model
 	mcphost --debug --config ./mcp.json --model "${OLLAMA_MODEL}"
 

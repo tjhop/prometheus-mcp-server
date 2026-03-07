@@ -5,7 +5,9 @@
     "go@latest",
     "golangci-lint@latest",
     "goreleaser@latest",
-    "nodejs@22"
+    "nodejs@22",
+    "chart-testing@latest",
+    "kubernetes-helm@latest"
   ],
   "shell": {
     "init_hook": [
