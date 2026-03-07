@@ -105,6 +105,7 @@ type ServerConfig struct {
 	DocsFS                fs.FS
 	ToonOutputEnabled     bool
 	ClientLoggingEnabled  bool
+	KeepAlive             time.Duration
 }
 
 // NewServer creates a new MCP server using the official Go SDK.
@@ -136,6 +137,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 		&mcp.ServerOptions{
 			Instructions: instrx,
 			Logger:       logger.WithGroup("go_sdk_logger"),
+			KeepAlive:    cfg.KeepAlive,
 		},
 	)
 
