@@ -338,8 +338,16 @@ func main() {
 
 func initHTTPServer(logger *slog.Logger) *http.Server {
 	server := &http.Server{
+		// These are TCP-level timeouts for individual HTTP
+		// request/response cycles, not MCP session timeouts.  MCP
+		// sessions are long lived, tracked by session ID, and managed
+		// through the go-sdk separately from these HTTP server values.
+		//
+		// Important: Because SSE/HTTP transports are streams, the
+		// WriteTimeout must be disabled because the response "never
+		// finishes".
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 0,
 		IdleTimeout:  30 * time.Second,
 	}
 
