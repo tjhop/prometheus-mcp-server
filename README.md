@@ -295,6 +295,10 @@ Please see [Flags](#command-line-flags) for more information on how to change th
 
 </details>
 
+### Grafana Dashboard
+
+A pre-built [Grafana](https://grafana.com/) dashboard is included in the [`grafana/`](./grafana/) directory for visualizing the metrics exposed by the MCP server. Import the dashboard json into grafana and it should be ready to go.
+
 ### Logs
 
 This project makes heavy use of structured, leveled logging.
