@@ -104,6 +104,20 @@ ingress:
   #    hosts:
   #      - prometheus-mcp-server.local
 
+grafana:
+  dashboards:
+    # Enable Grafana dashboard provisioning via sidecar ConfigMap discovery.
+    # Requires Grafana's sidecar to be enabled (standard in kube-prometheus-stack).
+    enabled: false
+    # Label key the Grafana sidecar watches for dashboard ConfigMaps
+    label: grafana_dashboard
+    # Label value to match
+    labelValue: "1"
+    # Annotations to add to the dashboard ConfigMap
+    annotations: {}
+    # annotations:
+    #   grafana_folder: "Prometheus MCP Server"
+
 serviceMonitor:
   # Enable ServiceMonitor resource for Prometheus Operator
   enabled: false

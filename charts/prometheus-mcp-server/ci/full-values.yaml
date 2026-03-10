@@ -1,9 +1,9 @@
 # Full feature test values -- enables most optional template paths to validate
 # they render valid Kubernetes manifests. Covers: serviceMonitor (with
-# relabelings, metricRelabelings), ingress (with TLS),
-# httpConfig, mcp options, tsdbAdmin, extraArgs, extraEnv, extraVolumes,
-# extraVolumeMounts, resources, nodeSelector, tolerations, affinity,
-# fullnameOverride, containerPort, serviceAccount customizations,
+# relabelings, metricRelabelings), ingress (with TLS), grafana dashboard
+# provisioning, httpConfig, mcp options, tsdbAdmin, extraArgs, extraEnv,
+# extraVolumes, extraVolumeMounts, resources, nodeSelector, tolerations,
+# affinity, fullnameOverride, containerPort, serviceAccount customizations,
 # and prometheus backend/truncation settings.
 #
 # Notable exclusions:
@@ -25,6 +25,12 @@ mcp:
     - "all"
   enableToonOutput: true
   enableClientLogging: true
+
+grafana:
+  dashboards:
+    enabled: true
+    annotations:
+      grafana_folder: "Prometheus MCP Server"
 
 docs:
   autoUpdate: false
