@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - "charts/**"
+      - "grafana/**"
       - ".github/workflows/helm-chart.yaml"
       - "ct.yaml"
   pull_request:
     paths:
       - "charts/**"
+      - "grafana/**"
       - ".github/workflows/helm-chart.yaml"
       - "ct.yaml"
 
@@ -39,6 +41,9 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2
 
+      - name: Sync Grafana dashboards into chart
+        run: make helm-sync-dashboards
+
       - name: List changed charts
         id: list-changed
         run: |
@@ -63,6 +68,9 @@ jobs:
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2
+
+      - name: Sync Grafana dashboards into chart
+        run: make helm-sync-dashboards
 
       - name: Lint charts
         run: ct lint --config ct.yaml
@@ -93,6 +101,9 @@ jobs:
         # Pinned to prometheus-operator v0.89.0 (latest stable as of 2026-03)
         run: |
           kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.89.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+
+      - name: Sync Grafana dashboards into chart
+        run: make helm-sync-dashboards
 
       - name: Install and test charts
         run: ct install --config ct.yaml
