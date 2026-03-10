@@ -306,7 +306,7 @@ func extractDocsFromArchive(r io.Reader) (fs.FS, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read tar entry %s: %w", hdr.Name, err)
 		}
-		totalExtracted += hdr.Size
+		totalExtracted += int64(len(data))
 		memFS[docPath] = &fstest.MapFile{Data: data}
 	}
 
