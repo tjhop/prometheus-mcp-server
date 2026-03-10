@@ -42,7 +42,7 @@ func (qi QueryInput) LogValue() slog.Value {
 // RangeQueryInput is the input for the range query tool.
 type RangeQueryInput struct {
 	Query string `json:"query" jsonschema:"the PromQL query to execute"`
-	Step  string `json:"step,omitempty" jsonschema:"query resolution step width in duration format or float seconds, auto-set if unspecified"`
+	Step  string `json:"step,omitempty" jsonschema:"query resolution step width in Go duration format (e.g. '30s', '5m', '1h'), auto-set if unspecified"`
 	TimeRangeInput
 	TruncatableInput
 }
