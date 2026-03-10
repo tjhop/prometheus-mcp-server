@@ -1022,6 +1022,7 @@ func (s *ServerContainer) doHTTPRequest(ctx context.Context, method string, rt h
 	metricAPICallDuration.With(prometheus.Labels{"target_path": requestPath}).Observe(time.Since(startTs).Seconds())
 
 	if resp.StatusCode != http.StatusOK {
+		metricAPICallsFailed.With(prometheus.Labels{"target_path": requestPath}).Inc()
 		if resp.StatusCode == http.StatusNotFound {
 			return "", &ErrEndpointNotSupported{
 				Endpoint:   requestPath,
