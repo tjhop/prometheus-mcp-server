@@ -117,6 +117,18 @@ var (
 			" Docs: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis",
 	).Default("false").Bool()
 
+	flagMcpKeepaliveInterval = kingpin.Flag(
+		"mcp.keepalive-interval",
+		"Interval for sending keepalive pings to connected MCP sessions."+
+			" If the peer fails to respond, the session is closed."+
+			" Most useful for HTTP transports to prevent idle connections from dropping.",
+	).Default("30s").Duration()
+
+	flagMcpSessionTimeout = kingpin.Flag(
+		"mcp.session-timeout",
+		"Idle session timeout for HTTP transport MCP sessions.",
+	).Default("10m").Duration()
+
 	flagDocsAutoUpdate = kingpin.Flag(
 		"docs.auto-update",
 		"Enable automatic documentation updates from the official prometheus/docs repository."+
@@ -191,6 +203,7 @@ func main() {
 		DocsFS:                docsFs,
 		ToonOutputEnabled:     *flagMcpToonOutputEnabled,
 		ClientLoggingEnabled:  *flagMcpClientLogging,
+		KeepAlive:             *flagMcpKeepaliveInterval,
 	})
 	if err != nil {
 		logger.Error("Failed to create MCP server", "err", err)
@@ -267,8 +280,7 @@ func main() {
 				case "http":
 					logger.Debug("starting MCP server", "transport", "http")
 
-					// TODO(@tjhop): make session idle timeout user configurable via flag?
-					httpMcpHandler := mcp.NewStreamableHTTPHandler(mcpServer, logger, 10*time.Minute)
+					httpMcpHandler := mcp.NewStreamableHTTPHandler(mcpServer, logger, *flagMcpSessionTimeout)
 					http.Handle("/mcp", httpMcpHandler)
 					<-cancel
 				default:
@@ -326,8 +338,16 @@ func main() {
 
 func initHTTPServer(logger *slog.Logger) *http.Server {
 	server := &http.Server{
+		// These are TCP-level timeouts for individual HTTP
+		// request/response cycles, not MCP session timeouts.  MCP
+		// sessions are long lived, tracked by session ID, and managed
+		// through the go-sdk separately from these HTTP server values.
+		//
+		// Important: Because SSE/HTTP transports are streams, the
+		// WriteTimeout must be disabled because the response "never
+		// finishes".
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 0,
 		IdleTimeout:  30 * time.Second,
 	}
 
