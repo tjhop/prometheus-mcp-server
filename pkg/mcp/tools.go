@@ -32,7 +32,7 @@ var (
 
 	exemplarQueryToolDef = &mcp.Tool{
 		Name:        "exemplar_query",
-		Description: "Execute a exemplar query against the Prometheus datasource",
+		Description: "Execute an exemplar query against the Prometheus datasource to find trace exemplars associated with metric samples",
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Exemplar Query",
 			ReadOnlyHint: true,
