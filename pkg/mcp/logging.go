@@ -6,8 +6,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/prometheus/common/promslog"
-
-	"github.com/tjhop/prometheus-mcp-server/pkg/log/multihandler"
 )
 
 // clientLoggingInterval is the minimum interval between log messages sent to
@@ -54,7 +52,7 @@ func getChainedLogger(logger *slog.Logger, req *mcp.CallToolRequest, loggerName 
 	case logger == nil && clientLogger != nil:
 		chainedLogger = clientLogger
 	default:
-		chainedLogger = slog.New(multihandler.New(logger.Handler(), clientLogger.Handler()))
+		chainedLogger = slog.New(slog.NewMultiHandler(logger.Handler(), clientLogger.Handler()))
 	}
 
 	return chainedLogger
