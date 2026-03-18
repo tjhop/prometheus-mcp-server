@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/prometheus/common/model"
 )
 
 var (
@@ -74,15 +76,16 @@ func ParseTimestampOrDuration(s string) (time.Time, error) {
 		return t, nil
 	}
 
-	if dur, err := time.ParseDuration(s); err == nil {
+	if dur, err := model.ParseDuration(s); err == nil {
 		// Durations always represent a time in the past relative to now.
 		// Both "5m" and "-5m" mean "5 minutes ago" -- we normalize
 		// negative durations so that callers (typically LLMs) get
 		// consistent behavior regardless of sign convention.
-		if dur < 0 {
-			dur = -dur
+		timeDur := time.Duration(dur)
+		if timeDur < 0 {
+			timeDur = -timeDur
 		}
-		return time.Now().Add(-dur), nil
+		return time.Now().Add(-timeDur), nil
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse %q to a valid timestamp or duration", s)

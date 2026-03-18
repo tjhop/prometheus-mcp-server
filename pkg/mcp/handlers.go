@@ -16,6 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/model"
 
 	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
 	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
@@ -183,12 +184,13 @@ func (s *ServerContainer) RangeQueryHandler(ctx context.Context, req *mcp.CallTo
 	// Calculate step based on actual time range (after parsing user input).
 	var step time.Duration
 	if input.Step != "" {
-		parsedStep, err := time.ParseDuration(input.Step)
+		parsedModelStep, err := model.ParseDuration(input.Step)
 		if err != nil {
 			return newToolErrorResult(fmt.Sprintf("failed to parse step: %v", err)), nil, nil
 		}
+		parsedStep := time.Duration(parsedModelStep)
 		if parsedStep <= 0 {
-			return newToolErrorResult("step must be a positive duration (e.g. '30s', '5m', '1h')"), nil, nil
+			return newToolErrorResult("step must be a positive duration (e.g. '30s', '5m', '1h', '1d')"), nil, nil
 		}
 		step = parsedStep
 	} else {
