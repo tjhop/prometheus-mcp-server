@@ -95,6 +95,16 @@ func TestParseTimestampOrDuration(t *testing.T) {
 			input:    "30s",
 			duration: 30 * time.Second,
 		},
+		{
+			name:     "1 day",
+			input:    "1d",
+			duration: 24 * time.Hour,
+		},
+		{
+			name:     "1 year",
+			input:    "1y",
+			duration: 365 * 24 * time.Hour,
+		},
 	}
 
 	for _, tc := range durationCases {

@@ -383,7 +383,7 @@ func TestRangeQueryHandler(t *testing.T) {
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
 				require.NoError(t, err)
 				require.True(t, isError)
-				require.Contains(t, result, "step must be a positive duration")
+				require.Contains(t, result, "failed to parse step")
 			},
 		},
 		{
@@ -410,6 +410,58 @@ func TestRangeQueryHandler(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, isError)
 				require.Contains(t, result, "1756140000")
+			},
+		},
+		{
+			name: "step with days unit (1d)",
+			args: map[string]any{
+				"query":      "up",
+				"start_time": "1756140000",
+				"end_time":   "1756743600",
+				"step":       "1d",
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				require.Equal(t, 24*time.Hour, r.Step, "1d step should equal 24 hours")
+				return model.Matrix{
+					&model.SampleStream{
+						Metric: model.Metric{},
+						Values: []model.SamplePair{
+							{Timestamp: model.TimeFromUnix(1756140000), Value: 1},
+						},
+					},
+				}, nil, nil
+			},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.False(t, isError)
+				require.Contains(t, result, "1756140000")
+			},
+		},
+		{
+			name: "step with years unit (1y)",
+			args: map[string]any{
+				"query":      "up",
+				"start_time": "1724600000",
+				"end_time":   "1756143600",
+				"step":       "1y",
+			},
+			mockQueryFunc: func(ctx context.Context, query string, r promv1.Range, opts ...promv1.Option) (model.Value, promv1.Warnings, error) {
+				// model.Duration defines 1y = 365 days.
+				expectedStep := 365 * 24 * time.Hour
+				require.Equal(t, expectedStep, r.Step, "1y step should equal 365.25 days")
+				return model.Matrix{
+					&model.SampleStream{
+						Metric: model.Metric{},
+						Values: []model.SamplePair{
+							{Timestamp: model.TimeFromUnix(1724600000), Value: 1},
+						},
+					},
+				}, nil, nil
+			},
+			validateResult: func(t *testing.T, result string, isError bool, err error) {
+				require.NoError(t, err)
+				require.False(t, isError)
+				require.Contains(t, result, "1724600000")
 			},
 		},
 	}
