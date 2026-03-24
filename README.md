@@ -176,9 +176,6 @@ Qualifications and support criteria are still under consideration, please open a
 
 | Resource Name | Resource URI | Description |
 | --- | --- | --- |
-| List metrics | `prometheus://list_metrics` | List metrics available |
-| Targets | `prometheus://targets` | Overview of the current state of the Prometheus target discovery |
-| TSDB Stats | `prometheus://tsdb_stats` | Usage and cardinality statistics from the TSDB |
 | List of Official Prometheus Documentation Files | `prometheus://docs` | List of official Prometheus Documentation files |
 | Read Official Prometheus Documentation | `prometheus://docs/{+file}` | Read official Prometheus Documentation files by name |
 
