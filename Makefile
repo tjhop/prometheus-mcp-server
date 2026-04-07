@@ -5,6 +5,7 @@ BINARY := prometheus-mcp-server
 GOLANGCILINT_CACHE := ${CURDIR}/.golangci-lint/build/cache
 OLLAMA_MODEL ?= ollama:gpt-oss:20b
 OPENWEBUI_VERSION ?= v0.6.15
+DOCS_COMMIT_HASH := cmd/prometheus-mcp-server/external/docs/COMMIT_HASH
 
 .PHONY: help
 help: ## print this help message
@@ -24,12 +25,14 @@ lint: ## run linters
 
 binary: submodules fmt tidy lint test ## build a binary
 	goreleaser build --clean --single-target --snapshot --output .
+	rm -f $(DOCS_COMMIT_HASH)
 
 build: binary ## alias for `binary`
 
 build-all: submodules fmt tidy lint ## test release process with goreleaser, does not publish/upload
 	docker run --privileged --rm tonistiigi/binfmt --install all
 	goreleaser release --snapshot --clean
+	rm -f $(DOCS_COMMIT_HASH)
 
 container: build-all ## build container images with goreleaser, alias for `build-all`
 
