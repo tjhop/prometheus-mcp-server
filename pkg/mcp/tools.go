@@ -1,6 +1,18 @@
 package mcp
 
-import "github.com/modelcontextprotocol/go-sdk/mcp"
+import (
+	"encoding/json"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// emptyInputSchema is an explicit JSON Schema for tools that take no
+// parameters. The MCP SDK's auto-generated schema for EmptyInput omits the
+// "properties" key, which causes issues with OpenAI's stricter validation.
+// Including an empty "properties" object is semantically identical.
+//
+// See: https://github.com/tjhop/prometheus-mcp-server/issues/119
+var emptyInputSchema = json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
 
 // ptr returns a pointer to the given value.
 //
@@ -87,6 +99,7 @@ var (
 	alertmanagersToolDef = &mcp.Tool{
 		Name:        "alertmanagers",
 		Description: "Get overview of Prometheus Alertmanager discovery",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Alertmanagers",
 			ReadOnlyHint: true,
@@ -96,6 +109,7 @@ var (
 	flagsToolDef = &mcp.Tool{
 		Name:        "flags",
 		Description: "Get runtime flags",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Runtime Flags",
 			ReadOnlyHint: true,
@@ -105,6 +119,7 @@ var (
 	listAlertsToolDef = &mcp.Tool{
 		Name:        "list_alerts",
 		Description: "List all active alerts",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "List Alerts",
 			ReadOnlyHint: true,
@@ -114,6 +129,7 @@ var (
 	tsdbStatsToolDef = &mcp.Tool{
 		Name:        "tsdb_stats",
 		Description: "Get usage and cardinality statistics from the TSDB",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "TSDB Stats",
 			ReadOnlyHint: true,
@@ -123,6 +139,7 @@ var (
 	buildInfoToolDef = &mcp.Tool{
 		Name:        "build_info",
 		Description: "Get Prometheus build information",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Build Info",
 			ReadOnlyHint: true,
@@ -132,6 +149,7 @@ var (
 	configToolDef = &mcp.Tool{
 		Name:        "config",
 		Description: "Get Prometheus configuration",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Configuration",
 			ReadOnlyHint: true,
@@ -141,6 +159,7 @@ var (
 	runtimeInfoToolDef = &mcp.Tool{
 		Name:        "runtime_info",
 		Description: "Get Prometheus runtime information",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Runtime Info",
 			ReadOnlyHint: true,
@@ -150,6 +169,7 @@ var (
 	listRulesToolDef = &mcp.Tool{
 		Name:        "list_rules",
 		Description: "List all alerting and recording rules that are loaded",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "List Rules",
 			ReadOnlyHint: true,
@@ -159,6 +179,7 @@ var (
 	listTargetsToolDef = &mcp.Tool{
 		Name:        "list_targets",
 		Description: "Get overview of Prometheus target discovery",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "List Targets",
 			ReadOnlyHint: true,
@@ -168,6 +189,7 @@ var (
 	walReplayToolDef = &mcp.Tool{
 		Name:        "wal_replay_status",
 		Description: "Get current WAL replay status",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "WAL Replay Status",
 			ReadOnlyHint: true,
@@ -178,6 +200,7 @@ var (
 	cleanTombstonesToolDef = &mcp.Tool{
 		Name:        "clean_tombstones",
 		Description: "Removes the deleted data from disk and cleans up the existing tombstones",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Clean Tombstones",
 			DestructiveHint: ptr(true),
@@ -206,6 +229,7 @@ var (
 	healthyToolDef = &mcp.Tool{
 		Name:        "healthy",
 		Description: "Management API endpoint that can be used to check Prometheus health.",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Health Check",
 			ReadOnlyHint: true,
@@ -215,6 +239,7 @@ var (
 	readyToolDef = &mcp.Tool{
 		Name:        "ready",
 		Description: "Management API endpoint that can be used to check Prometheus is ready to serve traffic (i.e. respond to queries.)",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "Readiness Check",
 			ReadOnlyHint: true,
@@ -224,6 +249,7 @@ var (
 	reloadToolDef = &mcp.Tool{
 		Name:        "reload",
 		Description: "Management API endpoint that can be used to trigger a reload of the Prometheus configuration and rule files.",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Reload Config",
 			DestructiveHint: ptr(true),
@@ -233,6 +259,7 @@ var (
 	quitToolDef = &mcp.Tool{
 		Name:        "quit",
 		Description: "Management API endpoint that can be used to trigger a graceful shutdown of Prometheus.",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Shutdown",
 			DestructiveHint: ptr(true),
@@ -243,6 +270,7 @@ var (
 	docsListToolDef = &mcp.Tool{
 		Name:        "docs_list",
 		Description: "List of Official Prometheus Documentation Files.",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "List Documentation",
 			ReadOnlyHint: true,
@@ -271,6 +299,7 @@ var (
 	thanosStoresToolDef = &mcp.Tool{
 		Name:        "list_stores",
 		Description: "List all store API servers",
+		InputSchema: emptyInputSchema,
 		Annotations: &mcp.ToolAnnotations{
 			Title:        "List Stores",
 			ReadOnlyHint: true,

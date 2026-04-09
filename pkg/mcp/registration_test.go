@@ -1,11 +1,14 @@
 package mcp
 
 import (
+	"encoding/json"
 	"log/slog"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/tjhop/prometheus-mcp-server/pkg/mcp/mcptest"
 )
 
 // getToolNames returns the names of all tools in a toolset map.
@@ -276,4 +279,51 @@ func TestToolsetContents(t *testing.T) {
 			require.True(t, exists, "TSDB admin tool %s should exist in prometheusToolset", adminTool)
 		}
 	})
+}
+
+// TestToolInputSchemaProperties verifies that every tool's InputSchema
+// includes a "properties" key after full MCP registration. This is a
+// regression test for OpenAI API compatibility -- the OpenAI-compatible
+// endpoint requires all tool schemas to have "properties".
+//
+// The test registers all tools on a real in-memory MCP server and then
+// calls ListTools through the protocol, so it validates the *actual*
+// schemas that clients receive -- including any auto-generated fields
+// the SDK produces for tools that accept parameters, and any explicit
+// schemas set for parameter-less (EmptyInput) tools.
+//
+// See: https://github.com/tjhop/prometheus-mcp-server/issues/119
+func TestToolInputSchemaProperties(t *testing.T) {
+	container := newTestContainer(nil)
+
+	toolsets := map[string]map[string]toolRegistration{
+		"prometheus": prometheusToolset,
+		"thanos":     thanosToolset,
+	}
+
+	for tsName, toolset := range toolsets {
+		t.Run(tsName, func(t *testing.T) {
+			ts := mcptest.NewTestServer(t)
+
+			for _, reg := range toolset {
+				reg.register(ts.Server, container)
+			}
+
+			result, err := ts.ListTools(ts.Context())
+			require.NoError(t, err, "ListTools failed")
+			require.Len(t, result.Tools, len(toolset), "registered tool count mismatch")
+
+			for _, tool := range result.Tools {
+				data, err := json.Marshal(tool.InputSchema)
+				require.NoErrorf(t, err, "%s/%s: failed to marshal InputSchema", tsName, tool.Name)
+
+				var schema map[string]any
+				err = json.Unmarshal(data, &schema)
+				require.NoErrorf(t, err, "%s/%s: failed to unmarshal InputSchema", tsName, tool.Name)
+
+				_, hasProperties := schema["properties"]
+				require.Truef(t, hasProperties, "%s/%s: InputSchema missing 'properties' key (required for OpenAI API compatibility)", tsName, tool.Name)
+			}
+		})
+	}
 }
