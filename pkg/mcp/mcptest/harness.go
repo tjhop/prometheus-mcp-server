@@ -96,6 +96,13 @@ func (ts *TestServer) ReadResource(ctx context.Context, uri string) (*mcp.ReadRe
 	return ts.session.ReadResource(ctx, &mcp.ReadResourceParams{URI: uri})
 }
 
+// ListTools returns the tools registered on the server as seen through the
+// MCP protocol. The returned schemas include any auto-generated fields
+// (e.g., InputSchema) that the SDK produces during registration.
+func (ts *TestServer) ListTools(ctx context.Context) (*mcp.ListToolsResult, error) {
+	return ts.session.ListTools(ctx, &mcp.ListToolsParams{})
+}
+
 // Close shuts down the test server and releases resources.
 // This is automatically called via t.Cleanup(), but can be called
 // manually if needed.
