@@ -109,9 +109,11 @@ func TestQueryHandler(t *testing.T) {
 			name: "missing query",
 			args: map[string]any{},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "query")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "query")
 			},
 		},
 		{
@@ -315,9 +317,11 @@ func TestRangeQueryHandler(t *testing.T) {
 			name: "missing query",
 			args: map[string]any{},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "query")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "query")
 			},
 		},
 		{
@@ -512,9 +516,11 @@ func TestSeriesHandler(t *testing.T) {
 			name: "missing matches",
 			args: map[string]any{},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "matches")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "matches")
 			},
 		},
 		{
@@ -603,9 +609,11 @@ func TestLabelValuesHandler(t *testing.T) {
 			name: "missing label",
 			args: map[string]any{},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "label")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "label")
 			},
 		},
 		{
@@ -776,9 +784,11 @@ func TestExemplarQueryHandler(t *testing.T) {
 			name: "missing query",
 			args: map[string]any{},
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "query")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "query")
 			},
 		},
 		{
@@ -1781,9 +1791,11 @@ func TestDeleteSeriesHandler(t *testing.T) {
 			args:              map[string]any{},
 			adminToolsEnabled: true,
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				// SDK validates required parameters before handler is called.
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "matches")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "matches")
 			},
 		},
 		{
@@ -2379,8 +2391,11 @@ func TestDocsReadHandler(t *testing.T) {
 			args:   map[string]any{},
 			docsFS: mockDocsFS(),
 			validateResult: func(t *testing.T, result string, isError bool, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "file")
+				// SDK validates required parameters before handler is called,
+				// returning validation errors as tool results (IsError=true), not Go errors.
+				require.NoError(t, err)
+				require.True(t, isError)
+				require.Contains(t, result, "file")
 			},
 		},
 		{
