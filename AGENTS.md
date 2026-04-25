@@ -1,187 +1,53 @@
 # Agent Guide for Prometheus MCP Server
 
-This file provides guidance to Claude Code, Codex, and other tools when working with code in this repository.
+An MCP server that gives LLM clients typed tools and resources for working with a running Prometheus instance — PromQL queries, metric/series/label discovery, target and rule inspection, management endpoints, and gated TSDB-admin operations — plus custom tools and resources backed by an embedded, Bleve-indexed copy of the official Prometheus documentation. Compatible backends (e.g. Thanos) get tailored toolsets. See [README.md](README.md) for the full tool list, backend differences, install methods, auth, telemetry, and time-format handling.
 
-## Project Overview
+## Development workflow
 
-This is an MCP (Model Context Protocol) server that allows LLMs to interact with running Prometheus instances via the Prometheus HTTP API. The server provides tools for executing PromQL queries, analyzing metrics, managing targets, reading official Prometheus documentation, and much more.
+Use `Makefile` targets — not raw `go` commands. The Makefile wires submodules, formatting, tidy, lint, and tests as prerequisites, and drives `goreleaser` for builds.
 
-For detailed user-facing documentation, see the project [README.md](README.md). Consult it when you need specifics on:
-- Full tool list, tool sets, and tool selection flags, when more information is needed than what is provided in the tool schema
-- Compatible Prometheus backends (Thanos, etc.) and their tool differences
-- MCP resource details beyond what is provided in the resource schema
-- Command-line flags and environment variables
-- Installation methods (binary, Docker, Helm, system packages)
-- Security and authentication configuration
-- Telemetry: metrics, Grafana dashboard, logging
-- Time format handling for tool inputs
+| Task | Command |
+|---|---|
+| Verify code (fmt + tidy + test) | `make test` |
+| Verify with lint too | `make lint test` |
+| Full local build | `make build` |
+| Release artifacts (containers, packages) | `make build-all` |
+| List all targets | `make help` |
 
-## Required Knowledge
+A single `make lint test` invocation runs each prereq once (no duplicated fmt/tidy) — use it as the default pre-commit check. `make build` does everything above *and* compiles the binary.
 
-To successfully work on this project, you must be an expert in the following domains:
-- Software engineering best practices
-- Go programming language (golang)
-- Prometheus and PromQL
-- Observability and monitoring systems
-- Telemetry and alerting
-- Metrics and time series databases
-- Large Language Models (LLMs)
-- Model Context Protocol (MCP)
+## Code layout (`pkg/mcp/`)
 
-## Development
+- `server.go` — `ServerContainer` (DI struct), middleware chain, HTTP + stdio transport.
+- `tools.go` — `*mcp.Tool` definitions with annotations.
+- `types.go` — tool input structs (`jsonschema` tags) and their `slog.LogValuer` implementations.
+- `handlers.go` — tool handler methods on `*ServerContainer`.
+- `registration.go` — toolset composition, per-backend toolsets (prometheus, thanos), `CoreTools` list.
+- `resources.go` — MCP resources (metric list, targets, docs).
+- `docs.go`, `docs_updater.go` — Bleve-indexed doc search with optional live auto-update.
+- `middleware.go`, `errors.go`, `logging.go` — telemetry middleware, graceful 404 handling, MCP client logging.
 
-Always favor using `Makefile` targets over their raw command equivalents. The Makefile exists to reproducibly automate build steps and ensure consistency across development environments.
+Supporting: `pkg/prometheus/` (API client builder with custom User-Agent), `internal/metrics/` (metrics registry + namespace), `internal/version/`.
 
-```bash
-# View all targets
-make help
+## Adding a new tool
 
-# Build binary (runs submodules, fmt, tidy, lint, test first)
-make binary
-# or
-make build
+1. **Input type** in `types.go`: struct with `jsonschema` tags and a `LogValue() slog.Value` method so structured logs group fields cleanly. Reuse `TimeRangeInput`, `TruncatableInput` where applicable.
+2. **Tool definition** in `tools.go`: `*mcp.Tool` with `Annotations.ReadOnlyHint` *or* `Annotations.DestructiveHint` (use the `ptr(true)` helper — can't take the address of a constant). Zero-input tools use `InputSchema: emptyInputSchema`, not the SDK's `EmptyInput` — see issue [#119](https://github.com/tjhop/prometheus-mcp-server/issues/119) for the OpenAI strict-schema workaround.
+3. **Handler** method on `*ServerContainer` in `handlers.go`, signature `(ctx, req, input) (*mcp.CallToolResult, any, error)`. `s.GetAPIClient(ctx)` returns both the prom Go client *and* the matching `http.RoundTripper` — use the client for endpoints it supports, and route everything else through `s.doHTTPRequest` (see "HTTP plumbing" below). Never reach for the default client/transport fields directly; that bypasses request-scoped auth.
+4. **Register** in `initPrometheusToolset()` in `registration.go`. If Thanos doesn't support the tool, add its name to `thanosRemovedTools`. Leave `CoreTools` alone unless the tool is essential enough that it should still load even when a user explicitly narrows the toolset — the server already defaults to `--mcp.tools=all`.
+5. **Test** in `handlers_test.go` (mock Prometheus lives in `api_mock_test.go`). `registration_test.go` validates toolset composition — it will fail loudly if the maps are inconsistent.
+6. Update the tool table in `README.md`.
 
-# Format code
-make fmt
+## Project-specific quirks/gotchas
 
-# Run linter
-make lint
-
-# Run tests
-make test
-
-# Build all release artifacts (containers, packages, etc)
-make build-all
-```
-
-When working on this project, you will primarily be working with tests (Go tests and any other test harnesses needed). Use the Makefile targets above to build, format, lint, and test your changes.
-
-## Architecture
-
-### High-Level Structure
-
-The project is organized into three main layers:
-
-1. **Entry Point** (`cmd/prometheus-mcp-server/main.go`)
-   - Initializes the MCP server with middlewares
-   - Sets up HTTP server for metrics and optional HTTP transport
-   - Uses `oklog/run` for goroutine orchestration and graceful shutdown
-   - Supports both stdio and HTTP transports for MCP communication
-
-2. **MCP Server Layer** (`pkg/mcp/`)
-   - **server.go**: Core MCP server initialization, ServerContainer, and middleware chain
-   - **tools.go**: Tool definitions and toolset management
-   - **handlers.go**: Tool handler implementations
-   - **resources.go**: MCP resource definitions (metrics list, targets, docs)
-   - **registration.go**: Tool and resource registration with the MCP server
-   - **docs.go**: Documentation search and retrieval functionality
-   - **docs_updater.go**: Live documentation auto-update from prometheus/docs repository
-   - **middleware.go**: Telemetry middleware for metrics and logging
-   - **errors.go**: Custom error types for graceful 404 handling
-   - **logging.go**: MCP client logging support
-   - **types.go**: Input/output type definitions for tools
-
-3. **Supporting Packages**
-   - **pkg/prometheus/**: Prometheus API client creation with custom User-Agent
-   - **internal/metrics/**: Prometheus metrics registry and instrumentation
-   - **internal/version/**: Build version information
-
-### Server Architecture
-
-The MCP server uses a `ServerContainer` pattern for dependency injection. This provides explicit dependency management for tool and resource handlers.
-
-#### ServerContainer
-
-The `ServerContainer` holds all dependencies needed by handlers:
-
-- **Core Dependencies**: Logger, default Prometheus API client, RoundTripper
-- **Configuration**: Truncation limit, TOON output mode, API timeout, client logging
-- **Documentation State**: Protected by `sync.RWMutex` for concurrent reads and live updates
-
-Dependencies are injected via `ServerContainer` rather than context. Tool handlers receive the container directly through closures during registration. The only context-carried data is the authorization header from HTTP requests (for auth forwarding).
-
-#### Middleware
-
-The server uses a telemetry middleware that instruments tool/resource calls with duration and failure metrics, and provides debug logging.
-
-#### Auth Forwarding
-
-For the HTTP transport, an `authContextMiddleware` extracts Authorization headers from incoming requests and adds them to the request context. `GetAPIClient()` creates request-specific API clients when auth is present, falling back to the default client otherwise.
-
-### Prometheus API Interaction
-
-The server interacts with Prometheus in two ways:
-
-1. **Via prometheus/client_golang** (`pkg/prometheus/api.go`)
-   - Used for standard Prometheus API endpoints
-   - Client created with custom User-Agent
-   - Supports Prometheus HTTP config for TLS/auth
-
-2. **Via direct HTTP requests** (`handlers.go`)
-   - Used for non-standard endpoints or backend-specific APIs
-   - Reuses RoundTripper from ServerContainer for consistent auth
+- **Time inputs** accept epoch seconds, RFC3339, *or* Go duration strings relative to now (`5m`, `1h30m`). Use `ParseTimestampOrDuration` / `parseTimeWithDefault` — don't hand-parse.
+- **HTTP plumbing.** `s.GetAPIClient(ctx)` returns both the prom Go client and the matching `http.RoundTripper`; `authContextMiddleware` makes the RoundTripper request-scoped when an `Authorization` header is present. For anything outside `promv1.API` — custom backends, management endpoints, new APIs — pull the RoundTripper and call `s.doHTTPRequest(ctx, method, rt, path, expectJSON)`, or `s.doManagementAPICall(ctx, method, path)` for `/-/...` endpoints. Both wrappers share the connection pool, emit `target_path`-labelled telemetry, and surface 404s as `ErrEndpointNotSupported`. References: `ThanosStoresHandler` for `/api/v1/...` calls, the Management API handlers for `/-/...`.
+- **Docs state** in `ServerContainer` is guarded by `sync.RWMutex` because `--docs.auto-update` can swap the Bleve index at runtime. Read under `RLock`, write under `Lock`.
+- **TSDB admin tools** (`delete_series`, `clean_tombstones`, `snapshot`) gate on the `--dangerous.enable-tsdb-admin-tools` flag and set `DestructiveHint`. `delete_series` additionally requires both `start_time` and `end_time` to avoid accidental full-data wipes.
+- **Metrics** register through `metrics.Registry` and use `metrics.MetricNamespace` via `prometheus.BuildFQName` — don't register globally.
+- **Backend toolsets** derive from the base Prometheus toolset: each backend has a `<backend>RemovedTools` list and an `init<Backend>Toolset` initializer that prunes unsupported tools and adds any backend-specific ones (see `initThanosToolset` for the canonical example). To add a new backend, extend `PrometheusBackends`, add the removal list + initializer, and wire it into `getToolset`'s switch — don't fork a parallel map.
+- **TOON output mode** is a server flag affecting how results are serialized to clients — not usually relevant when editing handler logic, but don't assume JSON shape in end-to-end tests.
 
 ## Testing
 
-Test files follow Go conventions with `_test.go` suffix. Key test files and patterns:
-
-- **handlers_test.go**: Comprehensive tool handler tests
-- **api_mock_test.go**: Mock Prometheus API for testing
-- **registration_test.go**: Toolset loading validation
-- **middleware_test.go**: Telemetry middleware tests
-- **docs_updater_test.go**: Documentation auto-update tests
-- **errors_test.go**: 404 detection and error wrapping tests
-- **logging_test.go**: Structured logging tests
-
-Tests use mock API responses and validate both success and error cases.
-
-## Configuration Files
-
-- **devbox.json**: Devbox development environment dependencies
-- **go.mod**: Go module dependencies (requires Go 1.26.0+)
-- **.goreleaser.yaml**: Multi-platform build configuration (Linux, macOS, Windows, FreeBSD, ARM variants)
-- **examples/mcp.json**: Example MCP server configuration for tooling integration
-- **examples/.gemini/settings.json**: Gemini CLI configuration example
-- **examples/http-config.yml**: Prometheus HTTP client config (TLS, auth)
-- **examples/k8s-deployment.yml**: Example Kubernetes deployment manifest
-- **examples/openshift-deployment.yml**: Example OpenShift deployment manifest
-
-## Key Dependencies
-
-- **modelcontextprotocol/go-sdk**: Official MCP Go SDK
-- **blevesearch/bleve/v2**: Full-text search for documentation
-- **go-git/go-git/v5**: Git operations for docs auto-update
-- **prometheus/client_golang**: Prometheus API client and metrics
-- **alpkeskin/gotoon**: TOON encoding for token-efficient output
-- **tmc/langchaingo**: Markdown text splitting for documentation chunking
-
-## Embedded Assets
-
-- **Prometheus Documentation**: Git submodule at `cmd/prometheus-mcp-server/external/docs/docs`
-  - Updated with: `make submodules`
-  - Indexed for full-text search using Bleve
-  - Supports live auto-update via `--docs.auto-update` flag
-
-- **MCP Instructions**: `pkg/mcp/assets/instructions.md`
-  - Embedded instructions for LLMs on how to use the Prometheus MCP server
-  - Loaded at server startup and provided to LLM clients
-
-## Git Submodules
-
-The project uses git submodules for embedding Prometheus documentation:
-
-```bash
-# Initialize/update submodules
-git submodule update --init --remote --recursive
-# or
-make submodules
-```
-
-## Release Process
-
-Releases are automated via GoReleaser:
-
-- Multi-platform binaries (Linux, macOS, Windows)
-- Container images (amd64, arm64)
-- System packages (deb, rpm, archlinux)
-- Systemd service files included in packages
+`*_test.go` files sit alongside the code they test. `handlers_test.go` is where most new tool tests land; use `api_mock_test.go`'s mock Prometheus. Run `make test` often — it's fast.
