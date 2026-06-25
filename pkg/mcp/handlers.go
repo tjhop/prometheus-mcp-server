@@ -18,8 +18,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 
-	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
-	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
+	"github.com/prometheus/prometheus-mcp/internal/metrics"
+	mcpProm "github.com/prometheus/prometheus-mcp/pkg/prometheus"
 )
 
 // Constants and shared types for handlers.

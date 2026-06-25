@@ -1,4 +1,4 @@
-module github.com/tjhop/prometheus-mcp-server
+module github.com/prometheus/prometheus-mcp
 
 go 1.26.0
 

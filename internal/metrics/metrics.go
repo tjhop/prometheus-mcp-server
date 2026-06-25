@@ -6,7 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/tjhop/prometheus-mcp-server/internal/version"
+	"github.com/prometheus/prometheus-mcp/internal/version"
 )
 
 const (

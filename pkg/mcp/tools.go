@@ -11,7 +11,7 @@ import (
 // "properties" key, which causes issues with OpenAI's stricter validation.
 // Including an empty "properties" object is semantically identical.
 //
-// See: https://github.com/tjhop/prometheus-mcp-server/issues/119
+// See: https://github.com/prometheus/prometheus-mcp/issues/119
 var emptyInputSchema = json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
 
 // ptr returns a pointer to the given value.

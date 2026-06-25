@@ -20,7 +20,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tjhop/prometheus-mcp-server/pkg/mcp/mcptest"
+	"github.com/prometheus/prometheus-mcp/pkg/mcp/mcptest"
 )
 
 // newTestContainer creates a ServerContainer with sensible defaults for testing.

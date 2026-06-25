@@ -27,9 +27,9 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 
-	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
-	"github.com/tjhop/prometheus-mcp-server/internal/version"
-	"github.com/tjhop/prometheus-mcp-server/pkg/mcp"
+	"github.com/prometheus/prometheus-mcp/internal/metrics"
+	"github.com/prometheus/prometheus-mcp/internal/version"
+	"github.com/prometheus/prometheus-mcp/pkg/mcp"
 )
 
 const (

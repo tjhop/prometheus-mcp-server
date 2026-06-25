@@ -8,7 +8,7 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/config"
 
-	"github.com/tjhop/prometheus-mcp-server/internal/version"
+	"github.com/prometheus/prometheus-mcp/internal/version"
 )
 
 // NewAPIClient creates a Prometheus API client configured with a custom

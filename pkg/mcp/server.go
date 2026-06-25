@@ -22,9 +22,9 @@ import (
 	"github.com/prometheus/common/promslog"
 	"github.com/tmc/langchaingo/textsplitter"
 
-	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
-	"github.com/tjhop/prometheus-mcp-server/internal/version"
-	mcpProm "github.com/tjhop/prometheus-mcp-server/pkg/prometheus"
+	"github.com/prometheus/prometheus-mcp/internal/metrics"
+	"github.com/prometheus/prometheus-mcp/internal/version"
+	mcpProm "github.com/prometheus/prometheus-mcp/pkg/prometheus"
 )
 
 // Embedded assets for the MCP server.
