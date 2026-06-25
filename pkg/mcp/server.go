@@ -130,7 +130,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 
 	server := mcp.NewServer(
 		&mcp.Implementation{
-			Name:    "prometheus-mcp-server",
+			Name:    "prometheus-mcp",
 			Title:   "Prometheus MCP Server",
 			Version: version.Info(),
 		},

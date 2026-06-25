@@ -26,7 +26,7 @@ func init() {
 		metricBuildInfo := prometheus.NewGaugeFunc(
 			prometheus.GaugeOpts{
 				Name: prometheus.BuildFQName(MetricNamespace, "build", "info"),
-				Help: "A metric with a constant '1' value with labels for version, commit and build_date from which prometheus-mcp-server was built.",
+				Help: "A metric with a constant '1' value with labels for version, commit and build_date from which prometheus-mcp was built.",
 				ConstLabels: prometheus.Labels{
 					"version":    version.Version,
 					"commit":     version.Commit,

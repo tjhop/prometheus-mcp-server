@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	programName = "prometheus-mcp-server"
+	programName = "prometheus-mcp"
 	defaultPort = 8080
 )
 
