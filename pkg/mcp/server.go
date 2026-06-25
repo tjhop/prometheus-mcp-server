@@ -1,3 +1,16 @@
+// Copyright The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package mcp
 
 import (
@@ -20,10 +33,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
+	promversion "github.com/prometheus/common/version"
 	"github.com/tmc/langchaingo/textsplitter"
 
 	"github.com/prometheus/prometheus-mcp/internal/metrics"
-	"github.com/prometheus/prometheus-mcp/internal/version"
 	mcpProm "github.com/prometheus/prometheus-mcp/pkg/prometheus"
 )
 
@@ -132,7 +145,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*mcp.Server, *ServerConta
 		&mcp.Implementation{
 			Name:    "prometheus-mcp",
 			Title:   "Prometheus MCP Server",
-			Version: version.Info(),
+			Version: promversion.Info(),
 		},
 		&mcp.ServerOptions{
 			Instructions: instrx,
