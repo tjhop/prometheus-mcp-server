@@ -24,8 +24,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promconfig "github.com/prometheus/common/config"
 
-	"github.com/tjhop/prometheus-mcp-server/internal/metrics"
-	"github.com/tjhop/prometheus-mcp-server/internal/version"
+	"github.com/prometheus/prometheus-mcp/internal/metrics"
+	"github.com/prometheus/prometheus-mcp/internal/version"
 )
 
 const (

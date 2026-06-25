@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tjhop/prometheus-mcp-server/pkg/mcp/mcptest"
+	"github.com/prometheus/prometheus-mcp/pkg/mcp/mcptest"
 )
 
 var _ promv1.API = (*MockPrometheusAPI)(nil)

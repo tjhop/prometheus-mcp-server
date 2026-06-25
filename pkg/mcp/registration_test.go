@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/tjhop/prometheus-mcp-server/pkg/mcp/mcptest"
+	"github.com/prometheus/prometheus-mcp/pkg/mcp/mcptest"
 )
 
 // getToolNames returns the names of all tools in a toolset map.
@@ -292,7 +292,7 @@ func TestToolsetContents(t *testing.T) {
 // the SDK produces for tools that accept parameters, and any explicit
 // schemas set for parameter-less (EmptyInput) tools.
 //
-// See: https://github.com/tjhop/prometheus-mcp-server/issues/119
+// See: https://github.com/prometheus/prometheus-mcp/issues/119
 func TestToolInputSchemaProperties(t *testing.T) {
 	container := newTestContainer(nil)
 

@@ -2,7 +2,7 @@ version: 2
 
 before:
   hooks:
-    - bash -c 'git -C cmd/prometheus-mcp-server/external/docs rev-parse HEAD > cmd/prometheus-mcp-server/external/docs/COMMIT_HASH'
+    - bash -c 'git -C cmd/prometheus-mcp/external/docs rev-parse HEAD > cmd/prometheus-mcp/external/docs/COMMIT_HASH'
 
 builds:
   - env:
@@ -15,11 +15,11 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X github.com/tjhop/prometheus-mcp-server/internal/version.BuildDate={{ .CommitDate }}
-      - -X github.com/tjhop/prometheus-mcp-server/internal/version.Version={{ .Version }}
-      - -X github.com/tjhop/prometheus-mcp-server/internal/version.Commit={{ .Commit }}
-    binary: prometheus-mcp-server
-    main: './cmd/prometheus-mcp-server'
+      - -X github.com/tjhop/prometheus-mcp/internal/version.BuildDate={{ .CommitDate }}
+      - -X github.com/tjhop/prometheus-mcp/internal/version.Version={{ .Version }}
+      - -X github.com/tjhop/prometheus-mcp/internal/version.Commit={{ .Commit }}
+    binary: prometheus-mcp
+    main: './cmd/prometheus-mcp'
 gomod:
   proxy: false
 dockers_v2:
@@ -47,8 +47,8 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 nfpms:
-  - package_name: 'prometheus-mcp-server'
-    homepage: 'https://github.com/tjhop/prometheus-mcp-server'
+  - package_name: 'prometheus-mcp'
+    homepage: 'https://github.com/tjhop/prometheus-mcp'
     maintainer: 'TJ Hoplock <t.hoplock@gmail.com>'
     description: 'Prometheus MCP Server'
     formats:
@@ -58,9 +58,9 @@ nfpms:
     bindir: /usr/bin
     contents:
       - src: ./README.md
-        dst: /usr/share/doc/tjhop/prometheus-mcp-server/README.md
-      - src: ./packaging/systemd/prometheus-mcp-server.service
-        dst: /lib/systemd/system/prometheus-mcp-server.service
+        dst: /usr/share/doc/tjhop/prometheus-mcp/README.md
+      - src: ./packaging/systemd/prometheus-mcp.service
+        dst: /lib/systemd/system/prometheus-mcp.service
         type: config
         file_info:
           mode: 0644
@@ -75,7 +75,7 @@ archives:
     - docs/*
     - documentation/*
     - examples/*
-    - packaging/systemd/prometheus-mcp-server.service
+    - packaging/systemd/prometheus-mcp.service
 mcp:
   name: "io.github.tjhop/{{.ProjectName}}"
   title: "Prometheus MCP Server"
