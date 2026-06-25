@@ -1,0 +1,6 @@
+#
+# Please keep this file in sync with the MAINTAINERS.md file!
+#
+
+# Prometheus MCP maintainers are default code owners for the whole repo.
+* @prometheus/prometheus-mcp-maintainers
