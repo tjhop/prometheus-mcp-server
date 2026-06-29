@@ -2,7 +2,7 @@
 
 [![license](https://img.shields.io/github/license/tjhop/prometheus-mcp-server)](https://github.com/tjhop/prometheus-mcp-server/blob/master/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tjhop/prometheus-mcp-server)](https://goreportcard.com/report/github.com/tjhop/prometheus-mcp-server)
-[![golangci-lint](https://github.com/tjhop/prometheus-mcp-server/actions/workflows/golangci-lint.yaml/badge.svg)](https://github.com/tjhop/prometheus-mcp-server/actions/workflows/golangci-lint.yaml)
+[![golangci-lint](https://github.com/tjhop/prometheus-mcp-server/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/tjhop/prometheus-mcp-server/actions/workflows/golangci-lint.yml)
 [![Latest Release](https://img.shields.io/github/v/release/tjhop/prometheus-mcp-server)](https://github.com/tjhop/prometheus-mcp-server/releases/latest)
 [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/tjhop/prometheus-mcp-server/total)](https://github.com/tjhop/prometheus-mcp-server/releases/latest)
 

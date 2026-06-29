@@ -1,13 +1,13 @@
 {
   "mcpServers": {
-    "prometheus-mcp-server": {
-      "command": "./prometheus-mcp-server",
+    "prometheus-mcp": {
+      "command": "./prometheus-mcp",
       "args": [
         "--log.level",
         "debug"
       ]
     },
-    "prometheus-mcp-server-http": {
+    "prometheus-mcp-http": {
       "type": "streamable-http",
       "url": "http://localhost:8080/mcp"
     }

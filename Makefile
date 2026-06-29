@@ -11,9 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Needs to be defined before including Makefile.common to auto-generate targets
-DOCKER_ARCHS ?= amd64 armv7 arm64
-
 include Makefile.common
 
 DOCKER_IMAGE_NAME ?= prometheus-mcp
@@ -26,7 +23,7 @@ DOCS_DIR         := cmd/prometheus-mcp/external/docs
 DOCS_TARBALL_URL := https://github.com/prometheus/docs/archive/$(DOCS_VERSION).tar.gz
 
 # Dev tooling knobs.
-BINARY            := prometheus-mcp-server
+BINARY            ?= prometheus-mcp
 OLLAMA_MODEL      ?= ollama:gpt-oss:20b
 OPENWEBUI_VERSION ?= v0.6.15
 
@@ -76,22 +73,22 @@ helm-test: helm-sync-dashboards ## install helm chart and run tests (requires a 
 	ct install --config ct.yaml
 
 .PHONY: mcphost
-mcphost: build ## use mcphost to run the prometheus-mcp-server against a local ollama model
-	mcphost --debug --config ./mcp.json --model "${OLLAMA_MODEL}"
+mcphost: build ## use mcphost to run the prometheus-mcp against a local ollama model
+	mcphost --debug --config ./examples/mcp.json --model "${OLLAMA_MODEL}"
 
 .PHONY: inspector
-inspector: build ## use inspector to run the prometheus-mcp-server in STDIO transport mode
-	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}"
+inspector: build ## use inspector to run the prometheus-mcp in STDIO transport mode
+	npx @modelcontextprotocol/inspector --config ./examples/mcp.json --server "${BINARY}"
 
 .PHONY: inspector-http
-inspector-http: ## use inspector to run the prometheus-mcp-server in streamable HTTP transport mode
-	npx @modelcontextprotocol/inspector --config ./mcp.json --server "${BINARY}-http"
+inspector-http: ## use inspector to run the prometheus-mcp in streamable HTTP transport mode
+	npx @modelcontextprotocol/inspector --config ./examples/mcp.json --server "${BINARY}-http"
 
 .PHONY: open-webui
-open-webui: build ## use open-webui to run the prometheus-mcp-server
+open-webui: build ## use open-webui to run the prometheus-mcp
 	docker run --rm -d -p 11119:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui "ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}"
 	uvx mcpo --port 18000 -- "./${BINARY}"
 
 .PHONY: gemini
-gemini: build ## use gemini-cli to run the prometheus-mcp-server against Google Gemini models
+gemini: build ## use gemini-cli to run the prometheus-mcp against Google Gemini models
 	npx @google/gemini-cli
