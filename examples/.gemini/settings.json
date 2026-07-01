@@ -5,8 +5,8 @@
   // "toolDiscoveryCommand": "bin/get_tools",
   // "toolCallCommand": "bin/call_tool",
   "mcpServers": {
-    "prometheus-mcp-server": {
-      "command": "./prometheus-mcp-server",
+    "prometheus-mcp": {
+      "command": "./prometheus-mcp",
       "args": [
           "--log.level",
           "debug"

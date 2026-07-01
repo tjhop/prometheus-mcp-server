@@ -5,11 +5,15 @@
 .golangci-lint/
 
 dist/
-/prometheus-mcp-server
 mcp.json
 
-# Generated docs submodule commit hash (created by make submodules / goreleaser)
-cmd/prometheus-mcp-server/external/docs/COMMIT_HASH
+# promu build / crossbuild output
+/.build/
+/.tarballs/
+/prometheus-mcp
+
+# Embedded prometheus/docs snapshot, downloaded by the `make docs` target.
+cmd/prometheus-mcp/external/docs/
 
 # Grafana dashboards synced into Helm chart at build time (source of truth: grafana/)
 charts/prometheus-mcp-server/dashboards/

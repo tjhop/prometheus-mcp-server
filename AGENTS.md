@@ -4,17 +4,19 @@ An MCP server that gives LLM clients typed tools and resources for working with 
 
 ## Development workflow
 
-Use `Makefile` targets — not raw `go` commands. The Makefile wires submodules, formatting, tidy, lint, and tests as prerequisites, and drives `goreleaser` for builds.
+Use `Makefile` targets — not raw `go` commands. The build uses the standard Prometheus tooling: [`promu`](https://github.com/prometheus/promu) driven through `Makefile` / `Makefile.common`. The embedded Prometheus documentation is a pinned `prometheus/docs` snapshot (`DOCS_VERSION` in the `Makefile`) that `make docs` downloads as a tarball and extracts into `cmd/prometheus-mcp/external/docs/`; `build`, `test`, and `crossbuild` depend on it, and the directory is gitignored.
 
 | Task | Command |
 |---|---|
-| Verify code (fmt + tidy + test) | `make test` |
-| Verify with lint too | `make lint test` |
-| Full local build | `make build` |
-| Release artifacts (containers, packages) | `make build-all` |
-| List all targets | `make help` |
+| Run tests | `make test` |
+| Run linters | `make lint` |
+| Full check suite (style, license, lint, yamllint, tidy, build, test) | `make` |
+| Build the binary for the host | `make build` |
+| Cross-build all release platforms | `make crossbuild` |
+| Refresh the embedded docs snapshot | `make docs` |
+| List the project-specific targets | `make help` |
 
-A single `make lint test` invocation runs each prereq once (no duplicated fmt/tidy) — use it as the default pre-commit check. `make build` does everything above *and* compiles the binary.
+Use bare `make` (or `make lint test` for a faster subset) as the default pre-commit check. Release artifacts (container images, tarballs) are produced in CI via [`prometheus/promci`](https://github.com/prometheus/promci) + `promu` — not built locally.
 
 ## Code layout (`pkg/mcp/`)
 
@@ -27,7 +29,7 @@ A single `make lint test` invocation runs each prereq once (no duplicated fmt/ti
 - `docs.go`, `docs_updater.go` — Bleve-indexed doc search with optional live auto-update.
 - `middleware.go`, `errors.go`, `logging.go` — telemetry middleware, graceful 404 handling, MCP client logging.
 
-Supporting: `pkg/prometheus/` (API client builder with custom User-Agent), `internal/metrics/` (metrics registry + namespace), `internal/version/`.
+Supporting: `pkg/prometheus/` (API client builder, plus the `UserAgent()` helper), `internal/metrics/` (metrics registry + namespace). Build/version info comes from `github.com/prometheus/common/version` (populated by promu ldflags); the embedded docs commit is read from `external/docs/COMMIT_HASH` at startup in `cmd/prometheus-mcp/main.go`.
 
 ## Adding a new tool
 

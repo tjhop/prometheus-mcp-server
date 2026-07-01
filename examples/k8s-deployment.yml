@@ -18,11 +18,11 @@ spec:
       containers:
       - name: prometheus-mcp-server
         image: ghcr.io/tjhop/prometheus-mcp-server:latest
-        args: 
-          - '--prometheus.url=http://prometheus-service.prometheus.svc:9090' # set your prometheus url here
-          - '--mcp.transport=http'
-          - '--web.listen-address=:8080'
-          - '--log.level=info'
+        args:
+        - '--prometheus.url=http://prometheus-service.prometheus.svc:9090' # set your prometheus url here
+        - '--mcp.transport=http'
+        - '--web.listen-address=:8080'
+        - '--log.level=info'
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

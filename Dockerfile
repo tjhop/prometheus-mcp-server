@@ -1,14 +1,12 @@
-ARG TARGETPLATFORM
+ARG ARCH="amd64"
+ARG OS="linux"
+FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
 
-FROM alpine:latest AS certs
-ARG TARGETPLATFORM
-RUN apk update && apk add ca-certificates
-
-FROM cgr.dev/chainguard/busybox:latest
-ARG TARGETPLATFORM
-COPY --from=certs /etc/ssl/certs /etc/ssl/certs
-
-COPY $TARGETPLATFORM/prometheus-mcp-server /usr/bin/prometheus-mcp-server
+ARG ARCH="amd64"
+ARG OS="linux"
+COPY .build/${OS}-${ARCH}/prometheus-mcp /bin/prometheus-mcp
 
 USER nobody
-ENTRYPOINT ["/usr/bin/prometheus-mcp-server"]
+EXPOSE     8080
+ENTRYPOINT [ "/bin/prometheus-mcp" ]

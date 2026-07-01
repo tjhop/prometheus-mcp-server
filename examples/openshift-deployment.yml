@@ -36,19 +36,19 @@ spec:
     spec:
       serviceAccountName: prometheus-mcp-server
       containers:
-      - name: prometheus-mcp-server
-        image: ghcr.io/tjhop/prometheus-mcp-server:latest
-        args: 
-          - '--prometheus.url=https://thanos-querier.openshift-monitoring.svc:9091'
-          - '--http.config=/etc/configs/prom-config.yaml'
-          - '--mcp.transport=http'
-          - '--web.listen-address=:8080'
-          - '--web.config.file=/etc/configs/web-config.yaml'
-          - '--log.level=info'
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8080
-        volumeMounts:
+        - name: prometheus-mcp-server
+          image: ghcr.io/tjhop/prometheus-mcp-server:latest
+          args:
+            - '--prometheus.url=https://thanos-querier.openshift-monitoring.svc:9091'
+            - '--http.config=/etc/configs/prom-config.yaml'
+            - '--mcp.transport=http'
+            - '--web.listen-address=:8080'
+            - '--web.config.file=/etc/configs/web-config.yaml'
+            - '--log.level=info'
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:
             - mountPath: /etc/configs
               name: configs
             - mountPath: /var/certs
